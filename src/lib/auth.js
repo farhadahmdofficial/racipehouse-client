@@ -1,34 +1,121 @@
 
 
+
+
 import { betterAuth } from "better-auth";
-import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { MongoClient } from "mongodb";
+import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { jwt } from "better-auth/plugins";
 
 // MongoClient Instance
 const client = new MongoClient(process.env.MONGODB_URI);
 
-// Database Object
+// Database Object (RecipeHouse Database)
 const db = client.db("recipehouse");
 
 export const auth = betterAuth({
   database: mongodbAdapter(db, {
     client: client,
   }),
+
   emailAndPassword: {
     enabled: true,
   },
+
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    },
+  },
+
+  // 💡 কাস্টম ইউজার ফিল্ডস (ড্যাশবোর্ড ও প্রোফাইলের জন্য)
   user: {
     additionalFields: {
       image: {
         type: "string",
         required: false,
-        input: true, // 💡 client থেকে image ফিল্ড রিসিভ করার জন্য অনুমতি দেওয়া হলো
+        input: true,
+      },
+      isPremium: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+      },
+      totalRecipes: {
+        type: "number",
+        required: false,
+        defaultValue: 0,
+      },
+      totalFavorites: {
+        type: "number",
+        required: false,
+        defaultValue: 0,
+      },
+      totalLikesReceived: {
+        type: "number",
+        required: false,
+        defaultValue: 0,
       },
     },
   },
+
+  // 💡 Session & JWT Cookie Cache Configuration
+  session: {
+    cookieCache: {
+      enabled: true,
+      strategy: "jwt",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    },
+  },
+
+  // 💡 JWT Plugin Integration
+  plugins: [jwt()],
+
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
 });
+
+
+
+
+
+
+// import { betterAuth } from "better-auth";
+// import { mongodbAdapter } from "better-auth/adapters/mongodb";
+// import { MongoClient } from "mongodb";
+
+// // MongoClient Instance
+// const client = new MongoClient(process.env.MONGODB_URI);
+
+// // Database Object
+// const db = client.db("recipehouse");
+
+// export const auth = betterAuth({
+//   database: mongodbAdapter(db, {
+//     client: client,
+//   }),
+//   emailAndPassword: {
+//     enabled: true,
+//   },
+//    socialProviders: {
+//         google: { 
+//             clientId: process.env.GOOGLE_CLIENT_ID,
+//             clientSecret: process.env.GOOGLE_CLIENT_SECRET 
+//         }
+//     },
+//   user: {
+//     additionalFields: {
+//       image: {
+//         type: "string",
+//         required: false,
+//         input: true, // 💡 client থেকে image ফিল্ড রিসিভ করার জন্য অনুমতি দেওয়া হলো
+//       },
+//     },
+//   },
+//   secret: process.env.BETTER_AUTH_SECRET,
+//   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+// });
 
 
 

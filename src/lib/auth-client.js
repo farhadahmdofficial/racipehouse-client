@@ -1,10 +1,9 @@
-
 import { createAuthClient } from "better-auth/react";
 
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
+  // 💡 অবশ্যই এক্সপ্রেস সার্ভারের পোর্ট (5000) দিতে হবে!
+  baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000", 
 });
-
 
 
 // import { createAuthClient } from "better-auth/react";
