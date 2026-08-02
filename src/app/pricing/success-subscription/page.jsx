@@ -4,10 +4,20 @@ import { stripe } from "@/lib/stripe";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { FaCheckCircle, FaArrowRight, FaReceipt } from "react-icons/fa";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+import { subscription } from "@/lib/actions/payment";
 
 export default async function SuccessSubscriptionPage({ searchParams }) {
   const params = await searchParams;
   const session_id = params?.session_id;
+
+  const authsession =await auth.api.getSession({
+          headers:await headers()
+  
+      });
+
+      const currentUser = authsession?.user;
 
   // session_id না থাকলে সরাসরি রিডাইরেক্ট
   if (!session_id) {
@@ -37,10 +47,19 @@ export default async function SuccessSubscriptionPage({ searchParams }) {
 
   // পেমেন্ট অসম্পূর্ণ থাকলে হোমপেজে রিডাইরেক্ট
   if (status === "open") {
+
     redirect("/");
   }
 
   if (status === "complete") {
+    // const result = await subscription({currentUser, session_id});
+    const result = await subscription({ 
+    user: currentUser, // 👈 currentUser কে user কি (key) তে ম্যাপ করা হলো
+    session_id 
+  });
+    console.log(result,"result from subscription function");
+
+
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200">
         <div className="max-w-md w-full bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-2xl text-center space-y-6">
