@@ -1,6 +1,9 @@
 
 
 'use client';
+// import { Suspense } from 'react';
+// import { usePathname } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 import { useState } from 'react';
 import { authClient } from '@/lib/auth-client';
@@ -11,33 +14,111 @@ import { toast } from 'react-hot-toast';
 import { FaEye, FaEyeSlash, FaUtensils } from 'react-icons/fa';
 
 const Register = () => {
+
+  //  const pathname=usePathname();
+  //  console.log(pathname,"pathname");
+
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+ 
+ 
 
 
-  const handleRegister = async (e) => {
+
+//   const handleRegister = async (e) => {
+//   e.preventDefault();
+//   setLoading(true);
+
+//   const formdata = new FormData(e.target);
+//   const registerData = Object.fromEntries(formdata.entries());
+
+//   // 💡 ১. খালি ফিল্ডগুলো (যেমন ফাঁকা ইমেজ ইনপুট) মুছে ফেলার ফিক্সড লাইন
+//   Object.keys(registerData).forEach(
+//     (key) => !registerData[key] && delete registerData[key]
+//   );
+
+//   console.log("Cleaned Signup Data:", registerData);
+
+//   try {
+//     const { data, error } = await authClient.signUp.email({
+//       ...registerData,
+//       plan: "free", // 💡 ডিফল্ট প্ল্যান সেট করা হলো
+//     });
+
+//     if (error) {
+//       // 💡 error.message ব্যবহার করলে আসল কারণ ব্রাউজারে পপআপে দেখাবে
+//       toast.error(error.message || 'Registration failed', {
+//         style: {
+//           border: '1px solid #f43f5e',
+//           padding: '16px',
+//           color: '#fff',
+//           background: '#090d16',
+//           fontFamily: 'monospace',
+//           fontSize: '12px'
+//         },
+//       });
+//       return;
+//     }
+
+//     toast.success('Registration Successful!', {
+//       style: {
+//         border: '1px solid #00ffcc',
+//         padding: '16px',
+//         color: '#fff',
+//         background: '#090d16',
+//         fontFamily: 'monospace',
+//         fontSize: '12px'
+//       },
+//     });
+
+//     setTimeout(() => {
+//       router.push('/');
+//     }, 1500);
+
+//   } catch (err) {
+//     console.error("Catch Error:", err);
+//     toast.error('Unexpected error occurred');
+//   } finally {
+//     // 💡 ২. রিকোয়েস্ট শেষ হলে লোডার বন্ধ করা
+//     setLoading(false);
+//   }
+// };
+
+
+
+
+
+const handleRegister = async (e) => {
   e.preventDefault();
   setLoading(true);
 
   const formdata = new FormData(e.target);
   const registerData = Object.fromEntries(formdata.entries());
 
-  // 💡 ১. খালি ফিল্ডগুলো (যেমন ফাঁকা ইমেজ ইনপুট) মুছে ফেলার ফিক্সড লাইন
+  // 💡 ১. খালি ফিল্ডগুলো মুছে ফেলা
   Object.keys(registerData).forEach(
     (key) => !registerData[key] && delete registerData[key]
   );
 
+  const { name, email, password, image, role } = registerData;
+
   console.log("Cleaned Signup Data:", registerData);
 
   try {
+    // 💡 ২. inferAdditionalFields প্লাগইন থাকায় role এবং plan সরাসরি পাস হবে
     const { data, error } = await authClient.signUp.email({
-      ...registerData,
+      email,
+      password,
+      name,
+      ...(image && { image }),
+      role: role || "user", // 👈 সরাসরি পাস করুন
+      plan: "free",         // 👈 সরাসরি পাস করুন
     });
 
     if (error) {
-      // 💡 error.message ব্যবহার করলে আসল কারণ ব্রাউজারে পপআপে দেখাবে
       toast.error(error.message || 'Registration failed', {
         style: {
           border: '1px solid #f43f5e',
@@ -70,10 +151,89 @@ const Register = () => {
     console.error("Catch Error:", err);
     toast.error('Unexpected error occurred');
   } finally {
-    // 💡 ২. রিকোয়েস্ট শেষ হলে লোডার বন্ধ করা
     setLoading(false);
   }
 };
+
+
+
+// const handleRegister = async (e) => {
+//   e.preventDefault();
+//   setLoading(true);
+
+//   const formdata = new FormData(e.target);
+//   const registerData = Object.fromEntries(formdata.entries());
+
+//   // 💡 ১. খালি ফিল্ডগুলো মুছে ফেলা
+//   Object.keys(registerData).forEach(
+//     (key) => !registerData[key] && delete registerData[key]
+//   );
+
+//   // 💡 ২. মূল ফর্ম ডাটা থেকে role, plan এবং image বের করে নেওয়া
+//   const { name, email, password, image, role } = registerData;
+
+//   console.log("Cleaned Signup Data:", registerData);
+
+//   try {
+//     // 💡 ৩. Better Auth-এর নির্ধারিত স্ট্রাকচারে ডাটা পাঠানো
+//     const { data, error } = await authClient.signUp.email({
+//       email,
+//       password,
+//       name,
+//       ...(image && { image }), // ইমেজ থাকলে পাঠাবে
+      
+//       // 🎯 আসল ট্রিক: role এবং plan অবশ্যই additionalFields-এর ভেতর পাঠাতে হবে!
+//       additionalFields: {
+//         role: role || "user", // ফর্মের সিলেক্ট করা 'admin' বা 'user'
+//         plan: "free",         // ডিফল্ট প্ল্যান
+//       },
+//     });
+
+//     if (error) {
+//       toast.error(error.message || 'Registration failed', {
+//         style: {
+//           border: '1px solid #f43f5e',
+//           padding: '16px',
+//           color: '#fff',
+//           background: '#090d16',
+//           fontFamily: 'monospace',
+//           fontSize: '12px'
+//         },
+//       });
+//       return;
+//     }
+
+//     toast.success('Registration Successful!', {
+//       style: {
+//         border: '1px solid #00ffcc',
+//         padding: '16px',
+//         color: '#fff',
+//         background: '#090d16',
+//         fontFamily: 'monospace',
+//         fontSize: '12px'
+//       },
+//     });
+
+//     setTimeout(() => {
+//       router.push('/');
+//     }, 1500);
+
+//   } catch (err) {
+//     console.error("Catch Error:", err);
+//     toast.error('Unexpected error occurred');
+//   } finally {
+//     setLoading(false);
+//   }
+// };
+
+
+
+
+
+
+
+
+
 
   // const handleRegister = async (e) => {
   //   e.preventDefault();
@@ -126,181 +286,476 @@ const Register = () => {
   //        }, 1500);
   // };
 
-  const handleGoogleLogin = async () => {
-    try {
-      toast.success('Redirecting to Google Sign In...', {
-        style: {
-          border: '1px solid #f97316',
-          padding: '16px',
-          color: '#fff',
-          background: '#090d16',
-          fontFamily: 'monospace',
-          fontSize: '12px',
-        },
-      });
 
-      await authClient.signIn.social({
-        provider: 'google',
-        callbackURL: '/',
-      });
-    } catch (error) {
-      console.error('Google login error:', error);
-      toast.error('Google Login Failed!', {
-        style: {
-          border: '1px solid #f43f5e',
-          padding: '16px',
-          color: '#fff',
-          background: '#090d16',
-          fontFamily: 'monospace',
-          fontSize: '12px',
-        },
-      });
-    }
-  };
 
-  return (
-    <div className="min-h-screen bg-[#030712] text-white px-4 py-12 flex items-center justify-center relative overflow-hidden">
-      {/* 🔮 Warm Culinary Orange Glow Grid */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-orange-500/10 blur-[160px] pointer-events-none" />
+// const handleGoogleLogin = async () => {
+//   try {
+//     const callbackURL = searchParams.get('redirect') || '/';
 
-      <div className="w-full max-w-md bg-[#090d16]/70 border border-white/10 rounded-2xl p-6 md:p-8 backdrop-blur-xl relative z-10 space-y-6 shadow-2xl">
-        {/* 🍳 RECIPE HOUSE TITLE HEADER */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.2em] text-orange-400 uppercase border-b border-orange-500/30 pb-1">
-            <FaUtensils className="text-orange-500" /> RecipeHouse Protocol
-          </div>
-          <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
-            Create <span className="text-orange-500 drop-shadow-[0_0_12px_rgba(249,115,22,0.4)]">Account</span>
-          </h1>
-          <p className="text-xs text-gray-400">
-            Join our community to discover and share delicious recipes.
-          </p>
-        </div>
+//     await authClient.signIn.social({
+//       provider: 'google',
+//       callbackURL: callbackURL,
+//     });
+//   } catch (error) {
+//     console.error('Google login error:', error);
+//   }
+// };
 
-        {/* 📝 REGISTRATION FORM */}
-        <form onSubmit={handleRegister} className="space-y-4">
-          {/* Field 1: Name */}
-          <div className="space-y-1">
-            <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
-              Chef / User Name
-            </label>
-            <input
-              type="text"
-              name="name"
-              required
-              placeholder="Farhad Ahmed"
-              className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
-            />
-          </div>
 
-          {/* Field 2: Email */}
-          <div className="space-y-1">
-            <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
-              Email Address
-            </label>
-            <input
-              type="email"
-              name="email"
-              required
-              placeholder="you are email adress"
-              className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
-            />
-          </div>
 
-          {/* Field 3: Photo URL */}
-          <div className="space-y-1">
-            <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
-              Avatar / Photo URL (Optional)
-            </label>
-            <input
-              type="url"
-              name="image"
-              placeholder="https://images.com/profile.jpg"
-              className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
-            />
-          </div>
 
-          {/* Field 4: Password */}
-          <div className="space-y-1">
-            <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
-              Secure Password
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                required
-                placeholder="••••••••"
-                className="w-full bg-[#030712] border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-3 text-gray-400 hover:text-white transition-colors"
-              >
-                {showPassword ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
-              </button>
-            </div>
-          </div>
 
-          {/* 🎯 REGISTER BUTTON */}
-          <div className="pt-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-black font-black uppercase text-xs tracking-widest py-3 rounded-xl active:scale-[0.99] transition-all disabled:opacity-50 disabled:pointer-events-none shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:shadow-[0_0_25px_rgba(249,115,22,0.4)]"
-            >
-              {loading ? 'Creating Profile...' : 'Register Account'}
-            </button>
-          </div>
-        </form>
 
-        {/* ⚡ OR DIVIDER */}
-        <div className="relative flex items-center justify-center py-1">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/5"></div>
-          </div>
-          <span className="relative bg-[#090d16] px-3 font-mono text-[9px] uppercase tracking-widest text-gray-500">
-            OR
-          </span>
-        </div>
 
-        {/* 🌐 GOOGLE LOGIN BUTTON */}
-        <button
-          type="button"
-          onClick={handleGoogleLogin}
-          className="w-full bg-white/5 border border-white/10 hover:border-white/20 text-gray-200 font-bold text-xs tracking-wide py-3 rounded-xl hover:bg-white/[0.08] active:scale-[0.99] transition-all flex items-center justify-center space-x-2.5"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" width="24" height="24">
-            <path
-              fill="#EA4335"
-              d="M12 5.04c1.64 0 3.12.56 4.28 1.67l3.2-3.2C17.52 1.58 14.97 1 12 1 7.35 1 3.4 3.65 1.5 7.5l3.6 2.8C6.01 7.14 8.74 5.04 12 5.04z"
-            />
-            <path
-              fill="#4285F4"
-              d="M23.5 12.25c0-.82-.07-1.6-.2-2.35H12v4.45h6.45c-.28 1.48-1.12 2.73-2.38 3.58l3.68 2.85c2.14-1.98 3.75-4.9 3.75-8.53z"
-            />
-            <path
-              fill="#FBBC05"
-              d="M5.1 14.7c-.23-.7-.35-1.44-.35-2.2s.12-1.5.35-2.2L1.5 7.5C.54 9.4 0 11.63 0 14s.54 4.6 1.5 6.5l3.6-2.8z"
-            />
-            <path
-              fill="#34A853"
-              d="M12 23c3.24 0 5.97-1.07 7.96-2.92l-3.68-2.85c-1.02.68-2.33 1.1-4.28 1.1-3.26 0-5.99-2.1-6.98-5.26l-3.6 2.8C3.4 20.35 7.35 23 12 23z"
-            />
-          </svg>
-          <span>Continue with Google</span>
-        </button>
 
-        {/* 🔗 LOGIN ROUTE LINK */}
-        <p className="text-center text-xs text-gray-500 font-mono">
-          Already a member?{' '}
-          <Link href="/login" className="text-orange-400 hover:underline font-bold">
-            Log In
-          </Link>
-        </p>
+
+// const handleGoogleLogin = async () => {
+//   try {
+//     toast.success('Redirecting to Google Sign In...', {
+//       style: {
+//         border: '1px solid #f97316',
+//         padding: '16px',
+//         color: '#fff',
+//         background: '#090d16',
+//         fontFamily: 'monospace',
+//         fontSize: '12px',
+//       },
+//     });
+
+//     const callbackURL = searchParams.get('redirect') || '/';
+
+//     const res = await authClient.signIn.social({
+//       provider: 'google',
+//       callbackURL: callbackURL,
+//     });
+
+//     // Better Auth যদি কোনো এরর অবজেক্ট রিটার্ন করে
+//     if (res?.error) {
+//       toast.error(res.error.message || 'Google Login Failed!');
+//     }
+//   } catch (error) {
+//     console.error('Google login error:', error);
+//     toast.error('Google Login Failed!');
+//   }
+// };
+
+
+const handleGoogleLogin = async () => {
+  try {
+    toast.success('Google Login...', {
+      style: {
+        border: '1px solid #00ffcc',
+        padding: '16px',
+        color: '#fff',
+        background: '#090d16',
+        fontFamily: 'monospace',
+        fontSize: '12px'
+      },
+    });
+
+    // 💡 window.location.origin ব্যবহারের ফলে এটি http://localhost:3000/ তৈরি করবে
+    const fullCallbackURL = `${window.location.origin}/`;
+
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: fullCallbackURL, // 👈 এখানে ফুল URL দেওয়া হলো
+    });
+
+  } catch (error) {
+    console.error("Google login error:", error);
+    toast.error('Google Login Failed!', {
+      style: {
+        border: '1px solid #f43f5e',
+        padding: '16px',
+        color: '#fff',
+        background: '#090d16',
+        fontFamily: 'monospace',
+        fontSize: '12px'
+      },
+    });
+  }
+};
+
+
+
+// const handleGoogleLogin = async () => {
+//   try {
+//     toast.success('Redirecting to Google Sign In...', {
+//       style: {
+//         border: '1px solid #f97316',
+//         padding: '16px',
+//         color: '#fff',
+//         background: '#090d16',
+//         fontFamily: 'monospace',
+//         fontSize: '12px',
+//       },
+//     });
+
+//     // 💡 ১. রিডাইরেক্ট পাথ বের করা (যেমন: '/dashboard' বা '/')
+//     const redirectPath = searchParams.get('redirect') || '/';
+
+//     // 💡 ২. ফ্রন্টএন্ডের ফুল URL তৈরি করা (যেমন: "http://localhost:3000/")
+//     const fullCallbackURL = `${window.location.origin}${
+//       redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`
+//     }`;
+
+//     const res = await authClient.signIn.social({
+//       provider: 'google',
+//       callbackURL: fullCallbackURL, // 👈 এখানে ফুল URL পাঠানো হচ্ছে
+//     });
+
+//     // Better Auth যদি কোনো এরর অবজেক্ট রিটার্ন করে
+//     if (res?.error) {
+//       toast.error(res.error.message || 'Google Login Failed!');
+//     }
+//   } catch (error) {
+//     console.error('Google login error:', error);
+//     toast.error('Google Login Failed!');
+//   }
+// };
+
+
+
+
+
+
+
+
+
+
+
+  // const handleGoogleLogin = async () => {
+  //   try {
+  //     toast.success('Redirecting to Google Sign In...', {
+  //       style: {
+  //         border: '1px solid #f97316',
+  //         padding: '16px',
+  //         color: '#fff',
+  //         background: '#090d16',
+  //         fontFamily: 'monospace',
+  //         fontSize: '12px',
+  //       },
+  //     });
+
+  //     await authClient.signIn.social({
+  //       provider: 'google',
+  //       callbackURL: '/',
+  //     });
+  //   } catch (error) {
+  //     console.error('Google login error:', error);
+  //     toast.error('Google Login Failed!', {
+  //       style: {
+  //         border: '1px solid #f43f5e',
+  //         padding: '16px',
+  //         color: '#fff',
+  //         background: '#090d16',
+  //         fontFamily: 'monospace',
+  //         fontSize: '12px',
+  //       },
+  //     });
+  //   }
+  // };
+
+  return (<div className="min-h-screen bg-[#030712] text-white px-4 py-12 flex items-center justify-center relative overflow-hidden">
+  {/* 🔮 Warm Culinary Orange Glow Grid */}
+  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-orange-500/10 blur-[160px] pointer-events-none" />
+
+  <div className="w-full max-w-md bg-[#090d16]/70 border border-white/10 rounded-2xl p-6 md:p-8 backdrop-blur-xl relative z-10 space-y-6 shadow-2xl">
+    {/* 🍳 RECIPE HOUSE TITLE HEADER */}
+    <div className="text-center space-y-2">
+      <div className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.2em] text-orange-400 uppercase border-b border-orange-500/30 pb-1">
+        <FaUtensils className="text-orange-500" /> RecipeHouse Protocol
       </div>
+      <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
+        Create <span className="text-orange-500 drop-shadow-[0_0_12px_rgba(249,115,22,0.4)]">Account</span>
+      </h1>
+      <p className="text-xs text-gray-400">
+        Join our community to discover and share delicious recipes.
+      </p>
     </div>
+
+    {/* 📝 REGISTRATION FORM */}
+    <form onSubmit={handleRegister} className="space-y-4">
+      {/* Field 1: Name */}
+      <div className="space-y-1">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+          User Name
+        </label>
+        <input
+          type="text"
+          name="name"
+          required
+          placeholder="Farhad Ahmed"
+          className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
+        />
+      </div>
+
+      {/* Field 2: Email */}
+      <div className="space-y-1">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+          Email Address
+        </label>
+        <input
+          type="email"
+          name="email"
+          required
+          placeholder="your email address"
+          className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
+        />
+      </div>
+
+      {/* 💡 Field 3: Select Role (User / Admin) - নতুন যুক্ত করা হলো */}
+      <div className="space-y-1">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+          Select Role
+        </label>
+        <select
+          name="role"
+          defaultValue="user"
+          className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-orange-500/60 transition-colors cursor-pointer"
+        >
+          <option value="user" className="bg-[#090d16] text-white">User </option>
+          <option value="admin" className="bg-[#090d16] text-white">Admin </option>
+        </select>
+      </div>
+
+      {/* Field 4: Photo URL */}
+      <div className="space-y-1">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+          Avatar / Photo URL (Optional)
+        </label>
+        <input
+          type="url"
+          name="image"
+          placeholder="https://images.com/profile.jpg"
+          className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
+        />
+      </div>
+
+      {/* Field 5: Password */}
+      <div className="space-y-1">
+        <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+          Secure Password
+        </label>
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            name="password"
+            required
+            placeholder="••••••••"
+            className="w-full bg-[#030712] border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3.5 top-3 text-gray-400 hover:text-white transition-colors"
+          >
+            {showPassword ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+          </button>
+        </div>
+      </div>
+
+      {/* 🎯 REGISTER BUTTON */}
+      <div className="pt-2">
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-orange-500 hover:bg-orange-600 text-black font-black uppercase text-xs tracking-widest py-3 rounded-xl active:scale-[0.99] transition-all disabled:opacity-50 disabled:pointer-events-none shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:shadow-[0_0_25px_rgba(249,115,22,0.4)]"
+        >
+          {loading ? 'Creating Profile...' : 'Register Account'}
+        </button>
+      </div>
+    </form>
+
+    {/* ⚡ OR DIVIDER */}
+    <div className="relative flex items-center justify-center py-1">
+      <div className="absolute inset-0 flex items-center">
+        <div className="w-full border-t border-white/5"></div>
+      </div>
+      <span className="relative bg-[#090d16] px-3 font-mono text-[9px] uppercase tracking-widest text-gray-500">
+        OR
+      </span>
+    </div>
+
+    {/* 🌐 GOOGLE LOGIN BUTTON */}
+    <button
+      type="button"
+      onClick={handleGoogleLogin}
+      className="w-full bg-white/5 border border-white/10 hover:border-white/20 text-gray-200 font-bold text-xs tracking-wide py-3 rounded-xl hover:bg-white/[0.08] active:scale-[0.99] transition-all flex items-center justify-center space-x-2.5"
+    >
+      <svg className="h-4 w-4" viewBox="0 0 24 24" width="24" height="24">
+        <path
+          fill="#EA4335"
+          d="M12 5.04c1.64 0 3.12.56 4.28 1.67l3.2-3.2C17.52 1.58 14.97 1 12 1 7.35 1 3.4 3.65 1.5 7.5l3.6 2.8C6.01 7.14 8.74 5.04 12 5.04z"
+        />
+        <path
+          fill="#4285F4"
+          d="M23.5 12.25c0-.82-.07-1.6-.2-2.35H12v4.45h6.45c-.28 1.48-1.12 2.73-2.38 3.58l3.68 2.85c2.14-1.98 3.75-4.9 3.75-8.53z"
+        />
+        <path
+          fill="#FBBC05"
+          d="M5.1 14.7c-.23-.7-.35-1.44-.35-2.2s.12-1.5.35-2.2L1.5 7.5C.54 9.4 0 11.63 0 14s.54 4.6 1.5 6.5l3.6-2.8z"
+        />
+        <path
+          fill="#34A853"
+          d="M12 23c3.24 0 5.97-1.07 7.96-2.92l-3.68-2.85c-1.02.68-2.33 1.1-4.28 1.1-3.26 0-5.99-2.1-6.98-5.26l-3.6 2.8C3.4 20.35 7.35 23 12 23z"
+        />
+      </svg>
+      <span>Continue with Google</span>
+    </button>
+
+    {/* 🔗 LOGIN ROUTE LINK */}
+    <p className="text-center text-xs text-gray-500 font-mono">
+      Already a member?{' '}
+      <Link href="/login" className="text-orange-400 hover:underline font-bold">
+        Log In
+      </Link>
+    </p>
+  </div>
+</div>
+
+    // <div className="min-h-screen bg-[#030712] text-white px-4 py-12 flex items-center justify-center relative overflow-hidden">
+    //   {/* 🔮 Warm Culinary Orange Glow Grid */}
+    //   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-orange-500/10 blur-[160px] pointer-events-none" />
+
+    //   <div className="w-full max-w-md bg-[#090d16]/70 border border-white/10 rounded-2xl p-6 md:p-8 backdrop-blur-xl relative z-10 space-y-6 shadow-2xl">
+    //     {/* 🍳 RECIPE HOUSE TITLE HEADER */}
+    //     <div className="text-center space-y-2">
+    //       <div className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-[0.2em] text-orange-400 uppercase border-b border-orange-500/30 pb-1">
+    //         <FaUtensils className="text-orange-500" /> RecipeHouse Protocol
+    //       </div>
+    //       <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight">
+    //         Create <span className="text-orange-500 drop-shadow-[0_0_12px_rgba(249,115,22,0.4)]">Account</span>
+    //       </h1>
+    //       <p className="text-xs text-gray-400">
+    //         Join our community to discover and share delicious recipes.
+    //       </p>
+    //     </div>
+
+    //     {/* 📝 REGISTRATION FORM */}
+    //     <form onSubmit={handleRegister} className="space-y-4">
+    //       {/* Field 1: Name */}
+    //       <div className="space-y-1">
+    //         <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+    //           Chef / User Name
+    //         </label>
+    //         <input
+    //           type="text"
+    //           name="name"
+    //           required
+    //           placeholder="Farhad Ahmed"
+    //           className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
+    //         />
+    //       </div>
+
+    //       {/* Field 2: Email */}
+    //       <div className="space-y-1">
+    //         <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+    //           Email Address
+    //         </label>
+    //         <input
+    //           type="email"
+    //           name="email"
+    //           required
+    //           placeholder="you are email adress"
+    //           className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
+    //         />
+    //       </div>
+
+    //       {/* Field 3: Photo URL */}
+    //       <div className="space-y-1">
+    //         <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+    //           Avatar / Photo URL (Optional)
+    //         </label>
+    //         <input
+    //           type="url"
+    //           name="image"
+    //           placeholder="https://images.com/profile.jpg"
+    //           className="w-full bg-[#030712] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
+    //         />
+    //       </div>
+
+    //       {/* Field 4: Password */}
+    //       <div className="space-y-1">
+    //         <label className="font-mono text-[10px] uppercase tracking-widest text-gray-400">
+    //           Secure Password
+    //         </label>
+    //         <div className="relative">
+    //           <input
+    //             type={showPassword ? 'text' : 'password'}
+    //             name="password"
+    //             required
+    //             placeholder="••••••••"
+    //             className="w-full bg-[#030712] border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-orange-500/60 transition-colors"
+    //           />
+    //           <button
+    //             type="button"
+    //             onClick={() => setShowPassword(!showPassword)}
+    //             className="absolute right-3.5 top-3 text-gray-400 hover:text-white transition-colors"
+    //           >
+    //             {showPassword ? <FaEyeSlash size={14} /> : <FaEye size={14} />}
+    //           </button>
+    //         </div>
+    //       </div>
+
+    //       {/* 🎯 REGISTER BUTTON */}
+    //       <div className="pt-2">
+    //         <button
+    //           type="submit"
+    //           disabled={loading}
+    //           className="w-full bg-orange-500 hover:bg-orange-600 text-black font-black uppercase text-xs tracking-widest py-3 rounded-xl active:scale-[0.99] transition-all disabled:opacity-50 disabled:pointer-events-none shadow-[0_0_15px_rgba(249,115,22,0.2)] hover:shadow-[0_0_25px_rgba(249,115,22,0.4)]"
+    //         >
+    //           {loading ? 'Creating Profile...' : 'Register Account'}
+    //         </button>
+    //       </div>
+    //     </form>
+
+    //     {/* ⚡ OR DIVIDER */}
+    //     <div className="relative flex items-center justify-center py-1">
+    //       <div className="absolute inset-0 flex items-center">
+    //         <div className="w-full border-t border-white/5"></div>
+    //       </div>
+    //       <span className="relative bg-[#090d16] px-3 font-mono text-[9px] uppercase tracking-widest text-gray-500">
+    //         OR
+    //       </span>
+    //     </div>
+
+    //     {/* 🌐 GOOGLE LOGIN BUTTON */}
+    //     <button
+    //       type="button"
+    //       onClick={handleGoogleLogin}
+    //       className="w-full bg-white/5 border border-white/10 hover:border-white/20 text-gray-200 font-bold text-xs tracking-wide py-3 rounded-xl hover:bg-white/[0.08] active:scale-[0.99] transition-all flex items-center justify-center space-x-2.5"
+    //     >
+    //       <svg className="h-4 w-4" viewBox="0 0 24 24" width="24" height="24">
+    //         <path
+    //           fill="#EA4335"
+    //           d="M12 5.04c1.64 0 3.12.56 4.28 1.67l3.2-3.2C17.52 1.58 14.97 1 12 1 7.35 1 3.4 3.65 1.5 7.5l3.6 2.8C6.01 7.14 8.74 5.04 12 5.04z"
+    //         />
+    //         <path
+    //           fill="#4285F4"
+    //           d="M23.5 12.25c0-.82-.07-1.6-.2-2.35H12v4.45h6.45c-.28 1.48-1.12 2.73-2.38 3.58l3.68 2.85c2.14-1.98 3.75-4.9 3.75-8.53z"
+    //         />
+    //         <path
+    //           fill="#FBBC05"
+    //           d="M5.1 14.7c-.23-.7-.35-1.44-.35-2.2s.12-1.5.35-2.2L1.5 7.5C.54 9.4 0 11.63 0 14s.54 4.6 1.5 6.5l3.6-2.8z"
+    //         />
+    //         <path
+    //           fill="#34A853"
+    //           d="M12 23c3.24 0 5.97-1.07 7.96-2.92l-3.68-2.85c-1.02.68-2.33 1.1-4.28 1.1-3.26 0-5.99-2.1-6.98-5.26l-3.6 2.8C3.4 20.35 7.35 23 12 23z"
+    //         />
+    //       </svg>
+    //       <span>Continue with Google</span>
+    //     </button>
+
+    //     {/* 🔗 LOGIN ROUTE LINK */}
+    //     <p className="text-center text-xs text-gray-500 font-mono">
+    //       Already a member?{' '}
+    //       <Link href="/login" className="text-orange-400 hover:underline font-bold">
+    //         Log In
+    //       </Link>
+    //     </p>
+    //   </div>
+    // </div>
   );
 };
 

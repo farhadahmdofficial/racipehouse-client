@@ -14,8 +14,25 @@ import {
   FaPhoneAlt, 
   FaMapMarkerAlt 
 } from 'react-icons/fa';
+import { usePathname } from 'next/navigation';
 
 const Footer = () => {
+
+      const pathname = usePathname();
+  
+  // /dashboard দিয়ে শুরু হওয়া সমস্ত রাউটের জন্য নেভবার বন্ধ থাকবে
+  if (pathname.startsWith("/dashboard")) {
+    return null;
+  }
+
+
+
+
+  //  const pathname = usePathname();
+  //   console.log(pathname);
+  //   if(pathname=="/user/userdashboard"|| pathname=="/admin" || pathname=="/dashboard"){
+  //     return null; // যদি ইউজার ড্যাশবোর্ড পেজে থাকি, তাহলে নেভবার রেন্ডার হবে না
+  //   }
   return (
     <footer className="bg-gray-900 text-gray-300 pt-12 pb-8 border-t border-gray-800 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

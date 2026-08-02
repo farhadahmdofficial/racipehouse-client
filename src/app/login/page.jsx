@@ -85,10 +85,44 @@ const LoginPage = () => {
   //   router.push(intendedRoute); // Redirecting to intended route
   // };
 
-  const handleGoogleLogin = () => {
-    alert('Google Login successful!');
-    router.push(intendedRoute);
-  };
+  // const handleGoogleLogin = () => {
+   
+  // };
+  const handleGoogleLogin = async () => {
+  try {
+    toast.success('Google Login...', {
+      style: {
+        border: '1px solid #00ffcc',
+        padding: '16px',
+        color: '#fff',
+        background: '#090d16',
+        fontFamily: 'monospace',
+        fontSize: '12px'
+      },
+    });
+
+    // 💡 window.location.origin ব্যবহারের ফলে এটি http://localhost:3000/ তৈরি করবে
+    const fullCallbackURL = `${window.location.origin}/`;
+
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: fullCallbackURL, // 👈 এখানে ফুল URL দেওয়া হলো
+    });
+
+  } catch (error) {
+    console.error("Google login error:", error);
+    toast.error('Google Login Failed!', {
+      style: {
+        border: '1px solid #f43f5e',
+        padding: '16px',
+        color: '#fff',
+        background: '#090d16',
+        fontFamily: 'monospace',
+        fontSize: '12px'
+      },
+    });
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 transition-colors duration-200">

@@ -29,36 +29,88 @@ export const auth = betterAuth({
     },
   },
 
-  // 💡 কাস্টম ইউজার ফিল্ডস (ড্যাশবোর্ড ও প্রোফাইলের জন্য)
   user: {
-    additionalFields: {
-      image: {
-        type: "string",
-        required: false,
-        input: true,
-      },
-      isPremium: {
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-      },
-      totalRecipes: {
-        type: "number",
-        required: false,
-        defaultValue: 0,
-      },
-      totalFavorites: {
-        type: "number",
-        required: false,
-        defaultValue: 0,
-      },
-      totalLikesReceived: {
-        type: "number",
-        required: false,
-        defaultValue: 0,
-      },
+  additionalFields: {
+   role: {
+      type: "string",        // 💡 টাইপ অবশ্যই বলে দিতে হবে
+      required: false,
+      defaultValue: "user",
+      input: true,           // 💡 ক্লায়েন্ট থেকে ডাটা অ্যাকসেপ্ট করার জন্য true
+    },
+    plan: {
+      type: "string",        // 💡 টাইপ অবশ্যই বলে দিতে হবে
+      required: false,
+      defaultValue: "free",
+      input: true,
+    },
+    image: {
+      type: "string",
+      required: false,
+      input: true,
+    },
+    isPremium: {
+      type: "boolean",
+      required: false,
+      defaultValue: false,
+      input: true,           // 💡 প্রয়োজন অনুযায়ী true বা false রাখতে পারেন
+    },
+    totalRecipes: {
+      type: "number",
+      required: false,
+      defaultValue: 0,
+      input: false,          // এটি ব্যাকএন্ড থেকে হ্যান্ডেল করা নিরাপদ
+    },
+    totalFavorites: {
+      type: "number",
+      required: false,
+      defaultValue: 0,
+      input: false,
+    },
+    totalLikesReceived: {
+      type: "number",
+      required: false,
+      defaultValue: 0,
+      input: false,
     },
   },
+},
+
+  // 💡 কাস্টম ইউজার ফিল্ডস (ড্যাশবোর্ড ও প্রোফাইলের জন্য)
+  // user: {
+  //   additionalFields: {
+  //     role:{
+  //       defaultValue:"user"
+  //     },
+  //     plan:{
+  //       defaultValue:"free"
+  //     },
+  //     image: {
+  //       type: "string",
+  //       required: false,
+  //       input: true,
+  //     },
+  //     isPremium: {
+  //       type: "boolean",
+  //       required: false,
+  //       defaultValue: false,
+  //     },
+  //     totalRecipes: {
+  //       type: "number",
+  //       required: false,
+  //       defaultValue: 0,
+  //     },
+  //     totalFavorites: {
+  //       type: "number",
+  //       required: false,
+  //       defaultValue: 0,
+  //     },
+  //     totalLikesReceived: {
+  //       type: "number",
+  //       required: false,
+  //       defaultValue: 0,
+  //     },
+  //   },
+  // },
 
   // 💡 Session & JWT Cookie Cache Configuration
   session: {
