@@ -265,7 +265,7 @@ const AddRecipe = () => {
 
           {/* price  */}
 
-          {/* <div>
+          <div>
             <label className="text-xs font-semibold uppercase text-orange-500">
               Price ($)
             </label>
@@ -281,7 +281,7 @@ const AddRecipe = () => {
               }
               className="w-full mt-1 bg-gray-50 border border-gray-200 dark:border-gray-800 rounded-xl p-3 text-xs focus:outline-none focus:border-orange-500"
             />
-          </div> */}
+          </div>
 
 
 
