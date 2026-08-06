@@ -1,5 +1,10 @@
 
 
+
+
+
+
+
 'use client';
 
 import React from 'react';
@@ -18,6 +23,7 @@ import {
   FaUser 
 } from 'react-icons/fa';
 import { authClient } from '@/lib/auth-client'; // 👈 আপনার auth-client বা সেশন হুক
+import { IoPricetagsOutline } from 'react-icons/io5';
 
 const adminLinks = [
   { name: 'Overview', href: '/dashboard', icon: FaChartBar },
@@ -34,6 +40,7 @@ const userLinks = [
   { name: 'Purchased Recipes', href: '/dashboard/users/mypurchased', icon: FaShoppingBag },
   { name: 'Favorites', href: '/dashboard/users/favorites', icon: FaHeart },
   { name: 'Profile', href: '/dashboard/profile', icon: FaUser }, // 👈 Profile added
+  { name: 'Your plan', href: '/pricing', icon: IoPricetagsOutline }, // 👈 Profile added
 ];
 
 const getLinks = (user) => {
@@ -50,7 +57,7 @@ const DashboardLayout = ({ children }) => {
   const { data: session } = authClient.useSession();
   const user = session?.user;
 
-  console.log(user);
+  // console.log(user);
 
   // 2. ⚠️ সংশোধন: getLinks(user) ফাংশনটি কল করা হয়েছে এবং Fallback (|| []) দেওয়া হয়েছে
   const links = getLinks(user) || [];
@@ -64,6 +71,9 @@ const DashboardLayout = ({ children }) => {
           <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase">
             {user?.role === 'admin' ? 'Admin' : 'User'}
           </span>
+          <div >
+            {user?.plan === 'pro' ? <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase">pro</span> : <div className='hidden'>tttt</div>}
+          </div>
         </div>
 
         <nav className="space-y-1">

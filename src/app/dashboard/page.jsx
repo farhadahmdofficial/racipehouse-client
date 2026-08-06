@@ -25,6 +25,8 @@ const Overview = () => {
 
   const stats = user?.role === 'admin' ? adminStats : userStats;
 
+  console.log(user);
+
   return (
     <div className="space-y-8">
       <div>

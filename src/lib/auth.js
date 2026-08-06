@@ -2,6 +2,16 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
 import { betterAuth } from "better-auth";
 import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
@@ -113,6 +123,7 @@ export const auth = betterAuth({
   // },
 
   // 💡 Session & JWT Cookie Cache Configuration
+ 
   session: {
     cookieCache: {
       enabled: true,
