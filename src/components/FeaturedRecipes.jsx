@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { FaClock, FaUtensils, FaGlobe } from 'react-icons/fa';
 
+
 // ডামি ডেটা (পরে আপনার API / MongoDB থেকে ফেচ করে বসাবেন)
-const dummyFeatured = [
+const Featured = [
   {
     _id: '1',
     name: 'Creamy Tuscan Garlic Chicken',
@@ -33,7 +34,15 @@ const dummyFeatured = [
   },
 ];
 
+
+
+
+
+
+
 const FeaturedRecipes = () => {
+  
+
   return (
     <section className="py-16 bg-white dark:bg-gray-900 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -50,7 +59,7 @@ const FeaturedRecipes = () => {
 
         {/* Recipe Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {dummyFeatured.map((recipe, index) => (
+          {Featured.map((recipe, index) => (
             <motion.div
               key={recipe._id}
               initial={{ opacity: 0, y: 30 }}
