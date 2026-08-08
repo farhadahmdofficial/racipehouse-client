@@ -1,6 +1,4 @@
 
-
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -14,20 +12,31 @@ const BrowseRecipes = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchAllRecipes = async () => {
       try {
+        setLoading(true);
         const result = await getRecipes();
-        // আপনার APIResponse এর Structure অনুযায়ী Data সেট করুন (Array নিশ্চিত করতে)
-        const data = Array.isArray(result) ? result : result?.data || [];
-        setRecipes(data);
+        const data = Array.isArray(result) 
+          ? result 
+          : result?.data || result?.recipes || [];
+        
+        if (isMounted) {
+          setRecipes(data);
+        }
       } catch (error) {
         console.error("Failed to fetch recipes:", error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchAllRecipes();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   if (loading) {
@@ -60,68 +69,82 @@ const BrowseRecipes = () => {
         ) : (
           /* Recipes Grid */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {recipes.map((recipe, index) => (
-              <motion.div
-                key={recipe._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: index * 0.1 }}
-                whileHover={{ y: -6 }}
-                className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
-              >
-                <div>
-                  {/* Image */}
-                  <div className="relative h-48 w-full overflow-hidden">
-                    <img
-                      src={recipe.image || 'https://via.placeholder.com/600x400?text=No+Image'}
-                      alt={recipe.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                      <FaHeart className="text-red-500" />
-                      <span>{recipe.likesCount || 0}</span>
+            {recipes.map((recipe, index) => {
+              // Safe ID Extraction
+              const recipeId = recipe._id || recipe.id;
+
+              return (
+                <motion.div
+                  key={recipeId || index}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                  whileHover={{ y: -6 }}
+                  className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+                >
+                  <div>
+                    {/* Image */}
+                    <div className="relative h-48 w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+                      <img
+                        src={recipe.image || 'https://via.placeholder.com/600x400?text=No+Image'}
+                        alt={recipe.name || 'Recipe'}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                        <FaHeart className="text-red-500" />
+                        <span>{recipe.likesCount || 0}</span>
+                      </div>
+                      {Number(recipe.price) > 0 && (
+                        <span className="absolute top-3 left-3 bg-orange-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+                          ${recipe.price}
+                        </span>
+                      )}
                     </div>
-                    {recipe.price > 0 && (
-                      <span className="absolute top-3 left-3 bg-orange-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
-                        ${recipe.price}
-                      </span>
+
+                    {/* Content */}
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 line-clamp-1">
+                        {recipe.name || 'Untitled Recipe'}
+                      </h3>
+
+                      <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-6">
+                        <div className="flex items-center gap-2">
+                          <FaUtensils className="text-orange-500" />
+                          <span><strong>Category:</strong> {recipe.category || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FaGlobe className="text-orange-500" />
+                          <span><strong>Cuisine:</strong> {recipe.cuisine || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FaClock className="text-orange-500" />
+                          <span><strong>Prep Time:</strong> {recipe.prepTime ? `${recipe.prepTime} mins` : 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* View Details Button (Fixed Dynamic Route) */}
+                  <div className="p-6 pt-0">
+                    {recipeId ? (
+                      <Link
+                        href={`/browserecipes/${recipeId}`}
+                        className="w-full block text-center bg-orange-600 hover:bg-orange-700 text-white font-medium py-2.5 rounded-xl transition duration-200 cursor-pointer"
+                      >
+                        View Details
+                      </Link>
+                    ) : (
+                      <button
+                        disabled
+                        className="w-full bg-gray-300 dark:bg-gray-800 text-gray-500 font-medium py-2.5 rounded-xl cursor-not-allowed"
+                      >
+                        Invalid Recipe ID
+                      </button>
                     )}
                   </div>
-
-                  {/* Content */}
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 line-clamp-1">
-                      {recipe.name}
-                    </h3>
-
-                    <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-6">
-                      <div className="flex items-center gap-2">
-                        <FaUtensils className="text-orange-500" />
-                        <span><strong>Category:</strong> {recipe.category}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <FaGlobe className="text-orange-500" />
-                        <span><strong>Cuisine:</strong> {recipe.cuisine}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <FaClock className="text-orange-500" />
-                        <span><strong>Prep Time:</strong> {recipe.prepTime}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* View Details Button */}
-                <div className="p-6 pt-0">
-                  <Link
-                    href={`/recipes/${recipe._id}`}
-                    className="w-full block text-center bg-orange-600 hover:bg-orange-700 text-white font-medium py-2.5 rounded-xl transition duration-200"
-                  >
-                    View Details
-                  </Link>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
         )}
 
@@ -131,6 +154,314 @@ const BrowseRecipes = () => {
 };
 
 export default BrowseRecipes;
+
+
+
+
+
+
+
+// 'use client';
+
+// import React, { useState, useEffect } from 'react';
+// import Link from 'next/link';
+// import { motion } from 'framer-motion';
+// import { FaClock, FaUtensils, FaGlobe, FaHeart } from 'react-icons/fa';
+// import { getRecipes } from '@/lib/actions/recipes';
+
+// const BrowseRecipes = () => {
+//   const [recipes, setRecipes] = useState([]);
+//   const [loading, setLoading] = useState(true);
+
+//   useEffect(() => {
+//     let isMounted = true;
+
+//     const fetchAllRecipes = async () => {
+//       try {
+//         setLoading(true);
+//         const result = await getRecipes();
+//         // Array বা Wrapped API Response Safe Extract
+//         const data = Array.isArray(result) 
+//           ? result 
+//           : result?.data || result?.recipes || [];
+        
+//         if (isMounted) {
+//           setRecipes(data);
+//         }
+//       } catch (error) {
+//         console.error("Failed to fetch recipes:", error);
+//       } finally {
+//         if (isMounted) setLoading(false);
+//       }
+//     };
+
+//     fetchAllRecipes();
+
+//     return () => {
+//       isMounted = false;
+//     };
+//   }, []);
+
+//   if (loading) {
+//     return (
+//       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 flex justify-center items-center">
+//         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-600"></div>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 transition-colors duration-200">
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+//         {/* Header */}
+//         <div className="text-center max-w-2xl mx-auto mb-12">
+//           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white sm:text-4xl">
+//             Browse All Recipes
+//           </h1>
+//           <p className="mt-3 text-gray-600 dark:text-gray-400">
+//             Explore hundreds of delicious recipes created by home chefs and culinary experts.
+//           </p>
+//         </div>
+
+//         {/* No Recipes Found Handling */}
+//         {recipes.length === 0 ? (
+//           <div className="text-center text-gray-500 py-12">
+//             No recipes found!
+//           </div>
+//         ) : (
+//           /* Recipes Grid */
+//           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+//             {recipes.map((recipe, index) => {
+//               // Safe ID Extraction
+//               const recipeId = recipe._id || recipe.id;
+
+//               return (
+//                 <motion.div
+//                   key={recipeId || index}
+//                   initial={{ opacity: 0, y: 20 }}
+//                   animate={{ opacity: 1, y: 0 }}
+//                   transition={{ duration: 0.4, delay: index * 0.1 }}
+//                   whileHover={{ y: -6 }}
+//                   className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+//                 >
+//                   <div>
+//                     {/* Image */}
+//                     <div className="relative h-48 w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+//                       <img
+//                         src={recipe.image || 'https://via.placeholder.com/600x400?text=No+Image'}
+//                         alt={recipe.name || 'Recipe'}
+//                         className="w-full h-full object-cover"
+//                       />
+//                       <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+//                         <FaHeart className="text-red-500" />
+//                         <span>{recipe.likesCount || 0}</span>
+//                       </div>
+//                       {Number(recipe.price) > 0 && (
+//                         <span className="absolute top-3 left-3 bg-orange-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+//                           ${recipe.price}
+//                         </span>
+//                       )}
+//                     </div>
+
+//                     {/* Content */}
+//                     <div className="p-6">
+//                       <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 line-clamp-1">
+//                         {recipe.name || 'Untitled Recipe'}
+//                       </h3>
+
+//                       <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-6">
+//                         <div className="flex items-center gap-2">
+//                           <FaUtensils className="text-orange-500" />
+//                           <span><strong>Category:</strong> {recipe.category || 'N/A'}</span>
+//                         </div>
+//                         <div className="flex items-center gap-2">
+//                           <FaGlobe className="text-orange-500" />
+//                           <span><strong>Cuisine:</strong> {recipe.cuisine || 'N/A'}</span>
+//                         </div>
+//                         <div className="flex items-center gap-2">
+//                           <FaClock className="text-orange-500" />
+//                           <span><strong>Prep Time:</strong> {recipe.prepTime ? `${recipe.prepTime} mins` : 'N/A'}</span>
+//                         </div>
+//                       </div>
+//                     </div>
+//                   </div>
+
+//                   {/* View Details Button (Fixed Link Target) */}
+//                   <div className="p-6 pt-0">
+//                     {recipeId ? (
+//                       <Link
+//                         href={`/recipes/${recipeId}`}
+//                         className="w-full block text-center bg-orange-600 hover:bg-orange-700 text-white font-medium py-2.5 rounded-xl transition duration-200"
+//                       >
+//                         View Details
+//                       </Link>
+//                     ) : (
+//                       <button
+//                         disabled
+//                         className="w-full bg-gray-300 dark:bg-gray-800 text-gray-500 font-medium py-2.5 rounded-xl cursor-not-allowed"
+//                       >
+//                         Invalid Recipe ID
+//                       </button>
+//                     )}
+//                   </div>
+//                 </motion.div>
+//               );
+//             })}
+//           </div>
+//         )}
+
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default BrowseRecipes;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// 'use client';
+
+// import React, { useState, useEffect } from 'react';
+// import Link from 'next/link';
+// import { motion } from 'framer-motion';
+// import { FaClock, FaUtensils, FaGlobe, FaHeart } from 'react-icons/fa';
+// import { getRecipes } from '@/lib/actions/recipes';
+
+// const BrowseRecipes = () => {
+//   const [recipes, setRecipes] = useState([]);
+//   const [loading, setLoading] = useState(true);
+
+//   useEffect(() => {
+//     const fetchAllRecipes = async () => {
+//       try {
+//         const result = await getRecipes();
+//         // আপনার APIResponse এর Structure অনুযায়ী Data সেট করুন (Array নিশ্চিত করতে)
+//         const data = Array.isArray(result) ? result : result?.data || [];
+//         setRecipes(data);
+//       } catch (error) {
+//         console.error("Failed to fetch recipes:", error);
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchAllRecipes();
+//   }, []);
+
+//   if (loading) {
+//     return (
+//       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 flex justify-center items-center">
+//         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-600"></div>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 transition-colors duration-200">
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+//         {/* Header */}
+//         <div className="text-center max-w-2xl mx-auto mb-12">
+//           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white sm:text-4xl">
+//             Browse All Recipes
+//           </h1>
+//           <p className="mt-3 text-gray-600 dark:text-gray-400">
+//             Explore hundreds of delicious recipes created by home chefs and culinary experts.
+//           </p>
+//         </div>
+
+//         {/* No Recipes Found Handling */}
+//         {recipes.length === 0 ? (
+//           <div className="text-center text-gray-500 py-12">
+//             No recipes found!
+//           </div>
+//         ) : (
+//           /* Recipes Grid */
+//           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+//             {recipes.map((recipe, index) => (
+//               <motion.div
+//                 key={recipe._id}
+//                 initial={{ opacity: 0, y: 20 }}
+//                 animate={{ opacity: 1, y: 0 }}
+//                 transition={{ duration: 0.4, delay: index * 0.1 }}
+//                 whileHover={{ y: -6 }}
+//                 className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+//               >
+//                 <div>
+//                   {/* Image */}
+//                   <div className="relative h-48 w-full overflow-hidden">
+//                     <img
+//                       src={recipe.image || 'https://via.placeholder.com/600x400?text=No+Image'}
+//                       alt={recipe.name}
+//                       className="w-full h-full object-cover"
+//                     />
+//                     <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+//                       <FaHeart className="text-red-500" />
+//                       <span>{recipe.likesCount || 0}</span>
+//                     </div>
+//                     {recipe.price > 0 && (
+//                       <span className="absolute top-3 left-3 bg-orange-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+//                         ${recipe.price}
+//                       </span>
+//                     )}
+//                   </div>
+
+//                   {/* Content */}
+//                   <div className="p-6">
+//                     <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 line-clamp-1">
+//                       {recipe.name}
+//                     </h3>
+
+//                     <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-6">
+//                       <div className="flex items-center gap-2">
+//                         <FaUtensils className="text-orange-500" />
+//                         <span><strong>Category:</strong> {recipe.category}</span>
+//                       </div>
+//                       <div className="flex items-center gap-2">
+//                         <FaGlobe className="text-orange-500" />
+//                         <span><strong>Cuisine:</strong> {recipe.cuisine}</span>
+//                       </div>
+//                       <div className="flex items-center gap-2">
+//                         <FaClock className="text-orange-500" />
+//                         <span><strong>Prep Time:</strong> {recipe.prepTime}</span>
+//                       </div>
+//                     </div>
+//                   </div>
+//                 </div>
+
+//                 {/* View Details Button */}
+//                 <div className="p-6 pt-0">
+//                   <Link
+//                     href={`/recipes/${recipe._id}`}
+//                     className="w-full block text-center bg-orange-600 hover:bg-orange-700 text-white font-medium py-2.5 rounded-xl transition duration-200"
+//                   >
+//                     View Details
+//                   </Link>
+//                 </div>
+//               </motion.div>
+//             ))}
+//           </div>
+//         )}
+
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default BrowseRecipes;
 
 
 
