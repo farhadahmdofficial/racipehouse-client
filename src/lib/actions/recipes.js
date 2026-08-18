@@ -9,23 +9,74 @@ import { getTokenSever } from "./getTokenSever";
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
 
-
 export const addrecipe = async (data) => {
-
-  const Token =await getTokenSever();
+  try {
+    const Token = await getTokenSever();
 
     const res = await fetch(`${SERVER_URL}/recipes`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        authorization: `Bearer ${Token}`
+        authorization: `Bearer ${Token}`,
       },
       body: JSON.stringify(data),
     });
 
+    // ১. সার্ভার Response OK (200-299) না হলে
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("Server Response Error:", errorText);
+      return { success: false, message: `Server error: ${res.status}` };
+    }
+
+    // ২. Response OK হলে JSON পার্স করা
     const result = await res.json();
     return result;
+  } catch (error) {
+    console.error("Error in addrecipe action:", error);
+    return { success: false, message: "Something went wrong" };
   }
+};
+
+
+
+
+
+// export const addrecipe = async (data) => {
+
+//   const Token =await getTokenSever();
+
+//     const res = await fetch(`${SERVER_URL}/recipes`, {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//         authorization: `Bearer ${Token}`
+//       },
+//       body: JSON.stringify(data),
+//     });
+
+//     const result = await res.json();
+//     return result;
+    
+//   }
+
+  // ok code 
+// export const addrecipe = async (data) => {
+
+
+
+//     const res = await fetch(`${SERVER_URL}/recipes`, {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+       
+//       },
+//       body: JSON.stringify(data),
+//     });
+
+//     const result = await res.json();
+//     return result;
+//   }
 
 
 
