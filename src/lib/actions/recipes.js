@@ -1,6 +1,8 @@
 
 "use server";
 
+import { getTokenSever } from "./getTokenSever";
+
 
 
 
@@ -10,10 +12,13 @@ const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
 
 export const addrecipe = async (data) => {
 
+  // const Token =await getTokenSever();
+
     const res = await fetch(`${SERVER_URL}/recipes`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        // authorization: `Bearer ${Token}`
       },
       body: JSON.stringify(data),
     });
