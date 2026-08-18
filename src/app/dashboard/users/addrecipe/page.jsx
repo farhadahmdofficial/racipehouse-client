@@ -8,8 +8,11 @@ import { addrecipe } from "@/lib/actions/recipes";
 import { imageupload } from "@/lib/actions/imgupload";
 import { authClient } from "@/lib/auth-client";
 import toast, { Toaster } from "react-hot-toast";
+import { useRouter } from "next/navigation";
+// import { useRouter } from "next/router";
 
 const AddRecipe = () => {
+  const router = useRouter();
   const [recipeForm, setRecipeForm] = useState({
     name: "",
     category: "Breakfast",
@@ -56,6 +59,7 @@ const AddRecipe = () => {
   // };
 
   // Form Submission Handler 
+
   
   const handleRecipeSubmit = async (e) => {
   e.preventDefault();
@@ -72,12 +76,40 @@ const AddRecipe = () => {
     console.log(resullt, 'recipe result');
 
     toast.success("Recipe added successfully!"); // 👈 ২. আপলোড শেষে নোটিফিকেশন দেবে
+    router.refresh(); 
+      router.push("/dashboard/users/myrecipes");
   } catch (error) {
     console.error("Submission error:", error);
   } finally {
     setSubmitting(false); // 👈 ৩. বাটন আবার আগের অবস্থায় ফিরবে
   }
 }
+
+
+
+
+// ok handel
+//   const handleRecipeSubmit = async (e) => {
+//   e.preventDefault();
+//   setSubmitting(true); // 👈 ১. বাটন লোডিং শুরু হবে
+
+//   try {
+//     const fromData = new FormData(e.target);
+//     const data = Object.fromEntries(fromData.entries());
+
+//     const image = await imageupload(data.image);
+
+//     const resullt = await addrecipe({ ...data, image: image.url, userId: user.id });
+
+//     console.log(resullt, 'recipe result');
+
+//     toast.success("Recipe added successfully!"); // 👈 ২. আপলোড শেষে নোটিফিকেশন দেবে
+//   } catch (error) {
+//     console.error("Submission error:", error);
+//   } finally {
+//     setSubmitting(false); // 👈 ৩. বাটন আবার আগের অবস্থায় ফিরবে
+//   }
+// }
 
 
 

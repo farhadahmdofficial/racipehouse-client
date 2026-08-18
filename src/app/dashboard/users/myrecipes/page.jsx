@@ -1,123 +1,82 @@
 
-"use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import {
-  FaPlus,
-  FaEdit,
-  FaTrash,
-  FaSpinner,
-  FaUtensils,
-  FaTimes,
-} from "react-icons/fa";
-import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
-import { getRecipes } from "@/lib/actions/recipes";
 
-const MyRecipesPage = () => {
-  const [recipes, setRecipes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
 
-  // Edit Modal State
-  const [selectedRecipe, setSelectedRecipe] = useState(null);
-  const [isUpdating, setIsUpdating] = useState(false);
+import { auth } from '@/lib/auth';
+import { MongoClient, ObjectId } from 'mongodb';
+import Link from 'next/link';
+import { FaPlus } from 'react-icons/fa';
+import { headers } from 'next/headers';
+// import { mytollte } from '@/lib/actions/myrecipes';
 
-  // Fetch User's Recipes using getRecipes()
-  const fetchMyRecipes = async () => {
-    try {
-      const response = await getRecipes();
+export default async function MyRecipesPage() {
+  const headersList = await headers();
+  const session = await auth.api.getSession({ headers: headersList });
 
-      let list = [];
-      if (Array.isArray(response)) {
-        list = response;
-      } else if (Array.isArray(response?.data)) {
-        list = response.data;
-      } else if (Array.isArray(response?.recipes)) {
-        list = response.recipes;
-      }
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12">
+        <div className="max-w-7xl mx-auto px-4 text-center py-20 bg-white dark:bg-slate-900 rounded-2xl">
+          <h2 className="text-2xl font-bold mb-4">Please Login</h2>
+          <Link href="/login" className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl">
+            Login Now
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-      setRecipes(list);
-    } catch (error) {
-      console.error("Failed to load recipes:", error);
-    } finally {
-      setLoading(false);
+  // ১. Session থেকে ID ও Email নেওয়া
+  const userId = session?.user?.id;
+  const userEmail = session?.user?.email;
+
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error('Please add your Mongo URI to .env.local');
+
+  const client = new MongoClient(uri);
+
+  try {
+    await client.connect();
+    const db = client.db('recipehouse');
+
+    // Safe ObjectId conversion
+    let userObjectId = null;
+    if (userId && ObjectId.isValid(userId)) {
+      userObjectId = new ObjectId(userId);
     }
-  };
 
-  useEffect(() => {
-    fetchMyRecipes();
-  }, []);
+    // ২. ফিল্টারিং পছন্দমতো যেকোনো একটি মিললেই ডাটা নিয়ে আসবে
+    const recipes = await db.collection('recipes')
+      .find({
+        $or: [
+          { userId: userId },             // String matching
+          { userId: userObjectId },       // ObjectId matching
+          { userEmail: userEmail },       // Email matching (যদি সেভ থাকে)
+          { email: userEmail }
+        ]
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
 
-  // Delete Handler
-  const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to delete this recipe?")) return;
+    const formattedRecipes = recipes.map(recipe => ({
+      ...recipe,
+      _id: recipe._id.toString()
+    }));
 
-    setDeletingId(id);
-    try {
-      const res = await axios.delete("/api/recipes/my-recipes", {
-        data: { recipeId: id },
-      });
+    
 
-      if (res.status === 200) {
-        setRecipes((prev) => prev.filter((item) => item._id !== id));
-      }
-    } catch (error) {
-      alert(error.response?.data?.message || "Failed to delete recipe.");
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  // Update Recipe Submit Handler
-  const handleUpdateSubmit = async (e) => {
-    e.preventDefault();
-    setIsUpdating(true);
-
-    try {
-      const payload = {
-        recipeId: selectedRecipe._id,
-        name: selectedRecipe.name,
-        category: selectedRecipe.category,
-        prepTime: Number(selectedRecipe.prepTime),
-        cuisine: selectedRecipe.cuisine,
-        price: Number(selectedRecipe.price) || 0,
-        image: selectedRecipe.image,
-        difficulty: selectedRecipe.difficulty,
-        ingredients: Array.isArray(selectedRecipe.ingredients)
-          ? selectedRecipe.ingredients
-          : selectedRecipe.ingredients?.split(",").map((i) => i.trim()),
-        instructions: Array.isArray(selectedRecipe.instructions)
-          ? selectedRecipe.instructions
-          : selectedRecipe.instructions?.split("\n").map((i) => i.trim()),
-      };
-
-      const res = await axios.put("/api/recipes/my-recipes", payload);
-
-      if (res.status === 200) {
-        alert("Recipe updated successfully!");
-        setSelectedRecipe(null);
-        fetchMyRecipes();
-      }
-    } catch (error) {
-      alert(error.response?.data?.message || "Failed to update recipe.");
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+    return (<div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Page Header */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
           <div>
             <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
-              My Recipes
-            </h1>
+              My Recipes ({formattedRecipes.length})
+            </h1> 
+            
+
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Manage, update, or remove your published culinary creations.
+              Manage your culinary creations.
             </p>
           </div>
           <Link
@@ -128,16 +87,11 @@ const MyRecipesPage = () => {
           </Link>
         </div>
 
-        {/* Main Content Area */}
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <FaSpinner className="animate-spin text-3xl text-orange-500" />
-          </div>
-        ) : recipes.length === 0 ? (
-          /* Empty State */
+        {/* Recipe List Table */}
+        {formattedRecipes.length === 0 ? (
           <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
-            <FaUtensils className="mx-auto text-4xl text-slate-300 dark:text-slate-700 mb-3" />
-            <p className="text-slate-600 dark:text-slate-400 text-lg mb-4">
+            <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
+            <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
               You haven't posted any recipes yet.
             </p>
             <Link
@@ -148,275 +102,991 @@ const MyRecipesPage = () => {
             </Link>
           </div>
         ) : (
-          /* Spaced Table Layout */
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-separate border-spacing-y-3">
-              <thead>
-                <tr className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">
-                  <th className="pb-3 px-8">Image</th>
-                  <th className="pb-3 px-6">Recipe Name</th>
-                  <th className="pb-3 px-6">Price</th>
-                  <th className="pb-3 px-8 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                <AnimatePresence>
-                  {recipes.map((recipe) => (
-                    <motion.tr
-                      key={recipe._id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className="bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-all rounded-2xl"
-                    >
-                      {/* Image Column */}
-                      <td className="py-4 px-8 rounded-l-2xl border-y border-l border-slate-200/80 dark:border-slate-800/80">
-                        <img
-                          src={
-                            recipe.image ||
-                            "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"
-                          }
-                          alt={recipe.name || "Recipe"}
-                          className="w-16 h-16 object-cover rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                        />
-                      </td>
-
-                      {/* Name Column */}
-                      <td className="py-4 px-6 border-y border-slate-200/80 dark:border-slate-800/80 font-semibold text-slate-900 dark:text-slate-100 align-middle">
-                        {recipe.name}
-                      </td>
-
-                      {/* Price Column */}
-                      <td className="py-4 px-6 border-y border-slate-200/80 dark:border-slate-800/80 font-bold text-orange-600 dark:text-orange-500 whitespace-nowrap align-middle">
-                        ${Number(recipe.price || 0).toFixed(2)}
-                      </td>
-
-                      {/* Action Column */}
-                      <td className="py-4 px-8 rounded-r-2xl border-y border-r border-slate-200/80 dark:border-slate-800/80 text-center align-middle">
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            onClick={() =>
-                              setSelectedRecipe({
-                                ...recipe,
-                                ingredients: Array.isArray(recipe.ingredients)
-                                  ? recipe.ingredients.join(", ")
-                                  : recipe.ingredients || "",
-                                instructions: Array.isArray(recipe.instructions)
-                                  ? recipe.instructions.join("\n")
-                                  : recipe.instructions || "",
-                              })
-                            }
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-medium transition"
-                          >
-                            <FaEdit /> Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(recipe._id)}
-                            disabled={deletingId === recipe._id}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 text-xs font-medium transition disabled:opacity-50"
-                          >
-                            {deletingId === recipe._id ? (
-                              <FaSpinner className="animate-spin" />
-                            ) : (
-                              <>
-                                <FaTrash /> Delete
-                              </>
-                            )}
-                          </button>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
+                    <th className="py-4 px-6">Recipe</th>
+                    <th className="py-4 px-6">Category</th>
+                    <th className="py-4 px-6">Price</th>
+                    <th className="py-4 px-6">Status</th>
+                    <th className="py-4 px-6 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
+                  {formattedRecipes.map((recipe) => (
+                    <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-4">
+                          <img
+                            src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+                            alt={recipe.name || "Recipe"}
+                            className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+                          />
+                          <div>
+                            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
+                              {recipe.name}
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
+                              {recipe.instructions || recipe.description || "No description provided"}
+                            </p>
+                          </div>
                         </div>
                       </td>
-                    </motion.tr>
+                      <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
+                        {recipe.category || 'General'}
+                      </td>
+                      <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
+                        ${recipe.price || 0}
+                      </td>
+                      <td className="py-4 px-6">
+                        {recipe.status && (
+                          <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+                            recipe.status === 'approved'
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                          }`}>
+                            {recipe.status}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Server Action Form Delete Button */}
+                      <td className="py-4 px-6 text-right">
+                        <form >
+                          <input type="hidden" name="id" value={recipe._id} />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-1 text-xs font-medium bg-red-50 dark:bg-red-950/40 hover:bg-red-600 text-red-600 hover:text-white dark:text-red-400 dark:hover:text-white border border-red-200 dark:border-red-800/60 px-3.5 py-1.5 rounded-lg transition"
+                          >
+                            Delete
+                          </button>
+                        </form>
+                        {/* <form action={deleterecipe}>
+                          <input type="hidden" name="id" value={recipe._id} />
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-1 text-xs font-medium bg-red-50 dark:bg-red-950/40 hover:bg-red-600 text-red-600 hover:text-white dark:text-red-400 dark:hover:text-white border border-red-200 dark:border-red-800/60 px-3.5 py-1.5 rounded-lg transition"
+                          >
+                            Delete
+                          </button>
+                        </form> */}
+                      </td>
+                    </tr>
                   ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
-
-      {/* --- UPDATE MODAL --- */}
-      <AnimatePresence>
-        {selectedRecipe && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-xl max-h-[90vh] flex flex-col"
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                  Update Recipe
-                </h2>
-                <button
-                  onClick={() => setSelectedRecipe(null)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-100 transition"
-                >
-                  <FaTimes size={20} />
-                </button>
-              </div>
-
-              {/* Modal Form */}
-              <form
-                onSubmit={handleUpdateSubmit}
-                className="p-6 space-y-4 overflow-y-auto"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Recipe Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={selectedRecipe.name || ""}
-                    onChange={(e) =>
-                      setSelectedRecipe({
-                        ...selectedRecipe,
-                        name: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Category
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={selectedRecipe.category || ""}
-                      onChange={(e) =>
-                        setSelectedRecipe({
-                          ...selectedRecipe,
-                          category: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Cuisine
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedRecipe.cuisine || ""}
-                      onChange={(e) =>
-                        setSelectedRecipe({
-                          ...selectedRecipe,
-                          cuisine: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Prep Time (mins)
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={selectedRecipe.prepTime || ""}
-                      onChange={(e) =>
-                        setSelectedRecipe({
-                          ...selectedRecipe,
-                          prepTime: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                      Price ($)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={selectedRecipe.price ?? ""}
-                      onChange={(e) =>
-                        setSelectedRecipe({
-                          ...selectedRecipe,
-                          price: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Image URL
-                  </label>
-                  <input
-                    type="url"
-                    value={selectedRecipe.image || ""}
-                    onChange={(e) =>
-                      setSelectedRecipe({
-                        ...selectedRecipe,
-                        image: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Ingredients (comma separated)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={selectedRecipe.ingredients || ""}
-                    onChange={(e) =>
-                      setSelectedRecipe({
-                        ...selectedRecipe,
-                        ingredients: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
-                </div>
-
-                {/* Form Actions */}
-                <div className="flex justify-end gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedRecipe(null)}
-                    className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isUpdating}
-                    className="px-5 py-2 rounded-xl bg-orange-600 text-white hover:bg-orange-700 transition flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {isUpdating && <FaSpinner className="animate-spin" />} Save
-                    Changes
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
-  );
-};
+    
+//     <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+//   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+//     {/* Header */}
+//     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+//       <div>
+//         <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+//           My Recipes ({formattedRecipes.length})
+//         </h1>
+//         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+//           Manage your culinary creations.
+//         </p>
+//       </div>
+//       <Link
+//         href="/dashboard/users/addrecipe"
+//         className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+//       >
+//         <FaPlus /> Add New Recipe
+//       </Link>
+//     </div>
 
-export default MyRecipesPage;
+//     {/* Recipe List - Table View */}
+//     {formattedRecipes.length === 0 ? (
+//       <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
+//         <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
+//         <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
+//           You haven't posted any recipes yet.
+//         </p>
+//         <Link
+//           href="/dashboard/users/addrecipe"
+//           className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+//         >
+//           Create Your First Recipe
+//         </Link>
+//       </div>
+//     ) : (
+//       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
+//         <div className="overflow-x-auto">
+//           <table className="w-full text-left border-collapse">
+//             <thead>
+//               <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
+//                 <th className="py-4 px-6">Recipe</th>
+//                 <th className="py-4 px-6">Category</th>
+//                 <th className="py-4 px-6">Price</th>
+//                 <th className="py-4 px-6">Status</th>
+//                 <th className="py-4 px-6 text-right">Action</th>
+//               </tr>
+//             </thead>
+//             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
+//               {formattedRecipes.map((recipe) => (
+//                 <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+//                   {/* Image & Title */}
+//                   <td className="py-4 px-6">
+//                     <div className="flex items-center gap-4">
+//                       <img
+//                         src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+//                         alt={recipe.name || "Recipe"}
+//                         className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+//                       />
+//                       <div>
+//                         <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
+//                           {recipe.name}
+//                         </h3>
+//                         <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
+//                           {recipe.instructions || recipe.description || "No description provided"}
+//                         </p>
+//                       </div>
+//                     </div>
+//                   </td>
+
+//                   {/* Category */}
+//                   <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
+//                     {recipe.category || 'General'}
+//                   </td>
+
+//                   {/* Price */}
+//                   <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
+//                     ${recipe.price || 0}
+//                   </td>
+
+//                   {/* Status */}
+//                   <td className="py-4 px-6">
+//                     {recipe.status && (
+//                       <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+//                         recipe.status === 'approved'
+//                           ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+//                           : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+//                       }`}>
+//                         {recipe.status}
+//                       </span>
+//                     )}
+//                   </td>
+
+//                   {/* Action */}
+//                   <td className="py-4 px-6 text-right">
+//                     <Link
+//                       href={`/dashboard/users/myrecipes/${recipe._id}`}
+//                       className="inline-block text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-orange-600 hover:text-white dark:hover:bg-orange-600 text-slate-700 dark:text-slate-300 px-3.5 py-1.5 rounded-lg transition"
+//                     >
+//                       View
+//                     </Link>
+//                   </td>
+//                 </tr>
+//               ))}
+//             </tbody>
+//           </table>
+//         </div>
+//       </div>
+//     )}
+//   </div>
+// </div>
+
+
+
+      // <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+      //   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      //     {/* Header */}
+      //     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+      //       <div>
+      //         <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+      //           My Recipes ({formattedRecipes.length})
+      //         </h1>
+      //         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+      //           Manage your culinary creations.
+      //         </p>
+      //       </div>
+      //       <Link
+      //         href="/dashboard/users/addrecipe"
+      //         className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+      //       >
+      //         <FaPlus /> Add New Recipe
+      //       </Link>
+      //     </div>
+
+      //     {/* Recipe List */}
+      //     {formattedRecipes.length === 0 ? (
+      //       <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
+      //         <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
+      //         <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
+      //           You haven't posted any recipes yet.
+      //         </p>
+      //         <Link
+      //           href="/dashboard/users/addrecipe"
+      //           className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+      //         >
+      //           Create Your First Recipe
+      //         </Link>
+      //       </div>
+      //     ) : (
+      //       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      //         {formattedRecipes.map((recipe) => (
+      //           <div
+      //             key={recipe._id}
+      //             className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-slate-200 dark:border-slate-800/80"
+      //           >
+      //             <div className="w-full h-48 bg-slate-100 dark:bg-slate-800 relative">
+      //               <img
+      //                 src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+      //                 alt={recipe.name || "Recipe"}
+      //                 className="w-full h-full object-cover"
+      //               />
+      //               {recipe.status && (
+      //                 <span className={`absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+      //                   recipe.status === 'approved' 
+      //                     ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' 
+      //                     : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+      //                 }`}>
+      //                   {recipe.status}
+      //                 </span>
+      //               )}
+      //             </div>
+      //             <div className="p-5">
+      //               <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+      //                 {recipe.name}
+      //               </h3>
+      //               <p className="text-slate-600 dark:text-slate-400 text-sm mb-3 line-clamp-2">
+      //                 {recipe.instructions || recipe.description || "No instructions provided"}
+      //               </p>
+      //               <div className="flex items-center justify-between text-xs text-slate-500 border-t pt-3 border-slate-100 dark:border-slate-800">
+      //                 <span>Category: {recipe.category || 'General'}</span>
+      //                 <span className="font-semibold text-orange-600 dark:text-orange-400">
+      //                   ${recipe.price || 0}
+      //                 </span>
+      //               </div>
+      //             </div>
+      //           </div>
+      //         ))}
+      //       </div>
+      //     )}
+      //   </div>
+      // </div>
+    );
+  } finally {
+    await client.close();
+  }
+}
+
+
+
+
+// import { auth } from '@/lib/auth';
+// import { MongoClient, ObjectId } from 'mongodb';
+// import Link from 'next/link';
+// import { FaPlus } from 'react-icons/fa';
+// import { headers } from 'next/headers';
+
+// export default async function MyRecipesPage() {
+//   const headersList = await headers();
+//   const session = await auth.api.getSession({ headers: headersList });
+
+//   if (!session) {
+//     return (
+//       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12">
+//         <div className="max-w-7xl mx-auto px-4 text-center py-20 bg-white dark:bg-slate-900 rounded-2xl">
+//           <h2 className="text-2xl font-bold mb-4">Please Login</h2>
+//           <Link href="/login" className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl">
+//             Login Now
+//           </Link>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   const userId = session.user.id;
+
+//   // const userId = session.user.id;
+// console.log("Logged in User ID:", userId);
+// console.log("Type of User ID:", typeof userId);
+
+//   const uri = process.env.MONGODB_URI;
+//   if (!uri) throw new Error('Please add your Mongo URI to .env.local');
+
+//   const client = new MongoClient(uri);
+
+//   try {
+//     await client.connect();
+//     const db = client.db('recipes');
+
+//     // userId String অথবা ObjectId দুটোই সাপোর্ট করার জন্য
+//     let userObjectId = null;
+//     try {
+//       userObjectId = new ObjectId(userId);
+//     } catch (e) {}
+
+//     // ১. আপনার ডাটাবেজে isPublished নেই, status রয়েছে।
+//     // ২. নিজস্ব রেসিপি দেখার জন্য status ফিল্টার বাদ দেওয়া সবচেয়ে নিরাপদ।
+//     const recipes = await db.collection('recipes')
+//       .find({
+//         $or: [
+//           { userId: userId },           // String (যেমন আপনার ডাটাতে আছে: "6a721f72d1e2a237da9d1ba1")
+//           { userId: userObjectId }      // ObjectId fallback
+//         ]
+//       })
+//       .sort({ createdAt: -1 })
+//       .toArray();
+
+//     const formattedRecipes = recipes.map(recipe => ({
+//       ...recipe,
+//       _id: recipe._id.toString()
+//     }));
+
+//     return (
+//       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12">
+//         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+//           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+//             <div>
+//               <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+//                 My Recipes ({formattedRecipes.length})
+//               </h1>
+//               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+//                 Manage your culinary creations.
+//               </p>
+//             </div>
+//             <Link
+//               href="/dashboard/users/addrecipe"
+//               className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+//             >
+//               <FaPlus /> Add New Recipe
+//             </Link>
+//           </div>
+
+//           {formattedRecipes.length === 0 ? (
+//             <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80">
+//               <div className="text-4xl mb-3">🍽️</div>
+//               <p className="text-slate-600 dark:text-slate-400 text-lg mb-4">
+//                 You haven't posted any recipes yet.
+//               </p>
+//               <Link
+//                 href="/dashboard/users/addrecipe"
+//                 className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+//               >
+//                 Create Your First Recipe
+//               </Link>
+//             </div>
+//           ) : (
+//             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+//               {formattedRecipes.map((recipe) => (
+//                 <div
+//                   key={recipe._id}
+//                   className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800/80"
+//                 >
+//                   <div className="w-full h-48 bg-slate-100 dark:bg-slate-800 relative">
+//                     <img
+//                       src={recipe.image}
+//                       alt={recipe.name}
+//                       className="w-full h-full object-cover"
+//                     />
+//                     <span className={`absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+//                       recipe.status === 'approved' 
+//                         ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' 
+//                         : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+//                     }`}>
+//                       {recipe.status || 'pending'}
+//                     </span>
+//                   </div>
+//                   <div className="p-5">
+//                     <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+//                       {recipe.name}
+//                     </h3>
+//                     <p className="text-slate-600 dark:text-slate-400 text-sm mb-3 line-clamp-2">
+//                       {recipe.instructions}
+//                     </p>
+//                     <div className="flex items-center justify-between text-xs text-slate-500 border-t pt-3 border-slate-100 dark:border-slate-800">
+//                       <span>Category: {recipe.category}</span>
+//                       <span>Price: ${recipe.price}</span>
+//                     </div>
+//                   </div>
+//                 </div>
+//               ))}
+//             </div>
+//           )}
+//         </div>
+//       </div>
+//     );
+//   } finally {
+//     await client.close();
+//   }
+// }
+
+
+// import { auth } from '@/lib/auth';
+// import { MongoClient, ObjectId } from 'mongodb';
+// import Link from 'next/link';
+// import { FaPlus } from 'react-icons/fa';
+// import { headers } from 'next/headers';
+
+// export default async function MyRecipesPage() {
+//   const headersList = await headers();
+//   const session = await auth.api.getSession({ headers: headersList });
+
+//   if (!session) {
+//     return (
+//       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12">
+//         <div className="max-w-7xl mx-auto px-4 text-center py-20 bg-white dark:bg-slate-900 rounded-2xl">
+//           <h2 className="text-2xl font-bold mb-4">Please Login</h2>
+//           <Link href="/login" className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl">
+//             Login Now
+//           </Link>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   const userId = session.user.id;
+
+//   console.log(userId ,"new user");
+
+//   const userEmail = session.user.email; // ইমেইল ব্যাকআপের জন্য
+
+//   const uri = process.env.MONGODB_URI;
+//   if (!uri) throw new Error('Please add your Mongo URI to .env.local');
+
+//   const client = new MongoClient(uri);
+
+//   try {
+//     await client.connect();
+//     const db = client.db('recipes');
+
+//     // String ও ObjectId উভয় ফরম্যাটের জন্য প্রস্তুতি
+//     let userObjectId = null;
+//     try {
+//       userObjectId = new ObjectId(userId);
+//     } catch (e) {}
+
+//     // Flexible Query: String, ObjectId অথবা Email দিয়ে ফিল্টার করবে
+//     const recipes = await db.collection('recipes')
+//       .find({
+//         $or: [
+//           { userId: userId },
+//           { userId: userObjectId },
+//           { userEmail: userEmail }
+//         ]
+//       })
+//       .sort({ createdAt: -1 })
+//       .toArray();
+
+//     const formattedRecipes = recipes.map(recipe => ({
+//       ...recipe,
+//       _id: recipe._id.toString()
+//     }));
+
+//     return (
+//       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12">
+//         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+//           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+//             <div>
+//               <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+//                 {formattedRecipes.length} My Recipes
+//               </h1>
+//               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+//                 Manage your culinary creations.
+//               </p>
+//             </div>
+//             <Link
+//               href="/dashboard/users/addrecipe"
+//               className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+//             >
+//               <FaPlus /> Add New Recipe
+//             </Link>
+//           </div>
+
+//           {formattedRecipes.length === 0 ? (
+//             <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80">
+//               <div className="text-4xl mb-3">🍽️</div>
+//               <p className="text-slate-600 dark:text-slate-400 text-lg mb-4">
+//                 You haven't posted any recipes yet.
+//               </p>
+//               <Link
+//                 href="/dashboard/users/addrecipe"
+//                 className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+//               >
+//                 Create Your First Recipe
+//               </Link>
+//             </div>
+//           ) : (
+//             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+//               {formattedRecipes.map((recipe) => (
+//                 <div
+//                   key={recipe._id}
+//                   className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800/80"
+//                 >
+//                   <div className="w-full h-48 bg-slate-100 dark:bg-slate-800">
+//                     <img
+//                       src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+//                       alt={recipe.name || "Recipe"}
+//                       className="w-full h-full object-cover"
+//                     />
+//                   </div>
+//                   <div className="p-5">
+//                     <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+//                       {recipe.name}
+//                     </h3>
+//                     <p className="text-slate-600 dark:text-slate-400 text-sm mb-3 line-clamp-2">
+//                       {recipe.description || "No description available"}
+//                     </p>
+//                     <div className="flex items-center justify-between">
+//                       <span className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-2.5 py-1 rounded-full">
+//                         {recipe.category || 'General'}
+//                       </span>
+//                       <Link
+//                         href={`/dashboard/users/recipes/${recipe._id}`}
+//                         className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+//                       >
+//                         View →
+//                       </Link>
+//                     </div>
+//                   </div>
+//                 </div>
+//               ))}
+//             </div>
+//           )}
+//         </div>
+//       </div>
+//     );
+//   } finally {
+//     await client.close();
+//   }
+// }
+
+
+
+
+
+
+
+
+// "use client";
+
+// import React, { useEffect, useState } from "react";
+// import Link from "next/link";
+// import {
+//   FaPlus,
+//   FaEdit,
+//   FaTrash,
+//   FaSpinner,
+//   FaUtensils,
+//   FaTimes,
+// } from "react-icons/fa";
+// import { motion, AnimatePresence } from "framer-motion";
+// import axios from "axios";
+// import { myRecipes } from "@/lib/actions/recipes";
+
+// const MyRecipesPage = () => {
+//   const [recipes, setRecipes] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   const [deletingId, setDeletingId] = useState(null);
+
+//   // Edit Modal State
+//   const [selectedRecipe, setSelectedRecipe] = useState(null);
+//   const [isUpdating, setIsUpdating] = useState(false);
+
+//   // Fetch User's Recipes using getRecipes()
+//   const fetchMyRecipes = async () => {
+//     try {
+//       const response = await myRecipes();
+//       // const response = await myRecipes();
+
+//       let list = [];
+//       if (Array.isArray(response)) {
+//         list = response;
+//       } else if (Array.isArray(response?.data)) {
+//         list = response.data;
+//       } else if (Array.isArray(response?.recipes)) {
+//         list = response.recipes;
+//       }
+
+//       setRecipes(list);
+//     } catch (error) {
+//       console.error("Failed to load recipes:", error);
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   useEffect(() => {
+//     fetchMyRecipes();
+//   }, []);
+
+//   // Delete Handler
+//   const handleDelete = async (id) => {
+//     if (!confirm("Are you sure you want to delete this recipe?")) return;
+
+//     setDeletingId(id);
+//     try {
+//       const res = await axios.delete("/api/recipes/my-recipes", {
+//         data: { recipeId: id },
+//       });
+
+//       if (res.status === 200) {
+//         setRecipes((prev) => prev.filter((item) => item._id !== id));
+//       }
+//     } catch (error) {
+//       alert(error.response?.data?.message || "Failed to delete recipe.");
+//     } finally {
+//       setDeletingId(null);
+//     }
+//   };
+
+//   // Update Recipe Submit Handler
+//   const handleUpdateSubmit = async (e) => {
+//     e.preventDefault();
+//     setIsUpdating(true);
+
+//     try {
+//       const payload = {
+//         recipeId: selectedRecipe._id,
+//         name: selectedRecipe.name,
+//         category: selectedRecipe.category,
+//         prepTime: Number(selectedRecipe.prepTime),
+//         cuisine: selectedRecipe.cuisine,
+//         price: Number(selectedRecipe.price) || 0,
+//         image: selectedRecipe.image,
+//         difficulty: selectedRecipe.difficulty,
+//         ingredients: Array.isArray(selectedRecipe.ingredients)
+//           ? selectedRecipe.ingredients
+//           : selectedRecipe.ingredients?.split(",").map((i) => i.trim()),
+//         instructions: Array.isArray(selectedRecipe.instructions)
+//           ? selectedRecipe.instructions
+//           : selectedRecipe.instructions?.split("\n").map((i) => i.trim()),
+//       };
+
+//       const res = await axios.put("/api/recipes/my-recipes", payload);
+
+//       if (res.status === 200) {
+//         alert("Recipe updated successfully!");
+//         setSelectedRecipe(null);
+//         fetchMyRecipes();
+//       }
+//     } catch (error) {
+//       alert(error.response?.data?.message || "Failed to update recipe.");
+//     } finally {
+//       setIsUpdating(false);
+//     }
+//   };
+
+//   return (
+//     <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+//         {/* Page Header */}
+//         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+//           <div>
+//             <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+//               {recipes.length} My Recipes
+//             </h1>
+//             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+//               Manage, update, or remove your published culinary creations.
+//             </p>
+//           </div>
+//           <Link
+//             href="/dashboard/users/addrecipe"
+//             className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+//           >
+//             <FaPlus /> Add New Recipe
+//           </Link>
+//         </div>
+
+//         {/* Main Content Area */}
+//         {loading ? (
+//           <div className="flex justify-center py-20">
+//             <FaSpinner className="animate-spin text-3xl text-orange-500" />
+//           </div>
+//         ) : recipes.length === 0 ? (
+//           /* Empty State */
+//           <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
+//             <FaUtensils className="mx-auto text-4xl text-slate-300 dark:text-slate-700 mb-3" />
+//             <p className="text-slate-600 dark:text-slate-400 text-lg mb-4">
+//               You haven't posted any recipes yet.
+//             </p>
+//             <Link
+//               href="/dashboard/users/addrecipe"
+//               className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+//             >
+//               Create Your First Recipe
+//             </Link>
+//           </div>
+//         ) : (
+//           /* Spaced Table Layout */
+//           <div className="overflow-x-auto">
+//             <table className="w-full text-left border-separate border-spacing-y-3">
+//               <thead>
+//                 <tr className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider font-semibold">
+//                   <th className="pb-3 px-8">Image</th>
+//                   <th className="pb-3 px-6">Recipe Name</th>
+//                   <th className="pb-3 px-6">Price</th>
+//                   <th className="pb-3 px-8 text-center">Actions</th>
+//                 </tr>
+//               </thead>
+//               <tbody className="text-sm">
+//                 <AnimatePresence>
+//                   {recipes.map((recipe) => (
+//                     <motion.tr
+//                       key={recipe._id}
+//                       initial={{ opacity: 0, y: 10 }}
+//                       animate={{ opacity: 1, y: 0 }}
+//                       exit={{ opacity: 0, scale: 0.95 }}
+//                       className="bg-white dark:bg-slate-900 shadow-sm hover:shadow-md transition-all rounded-2xl"
+//                     >
+//                       {/* Image Column */}
+//                       <td className="py-4 px-8 rounded-l-2xl border-y border-l border-slate-200/80 dark:border-slate-800/80">
+//                         <img
+//                           src={
+//                             recipe.image ||
+//                             "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"
+//                           }
+//                           alt={recipe.name || "Recipe"}
+//                           className="w-16 h-16 object-cover rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
+//                         />
+//                       </td>
+
+//                       {/* Name Column */}
+//                       <td className="py-4 px-6 border-y border-slate-200/80 dark:border-slate-800/80 font-semibold text-slate-900 dark:text-slate-100 align-middle">
+//                         {recipe.name}
+//                       </td>
+
+//                       {/* Price Column */}
+//                       <td className="py-4 px-6 border-y border-slate-200/80 dark:border-slate-800/80 font-bold text-orange-600 dark:text-orange-500 whitespace-nowrap align-middle">
+//                         ${Number(recipe.price || 0).toFixed(2)}
+//                       </td>
+
+//                       {/* Action Column */}
+//                       <td className="py-4 px-8 rounded-r-2xl border-y border-r border-slate-200/80 dark:border-slate-800/80 text-center align-middle">
+//                         <div className="flex items-center justify-center gap-3">
+//                           <button
+//                             onClick={() =>
+//                               setSelectedRecipe({
+//                                 ...recipe,
+//                                 ingredients: Array.isArray(recipe.ingredients)
+//                                   ? recipe.ingredients.join(", ")
+//                                   : recipe.ingredients || "",
+//                                 instructions: Array.isArray(recipe.instructions)
+//                                   ? recipe.instructions.join("\n")
+//                                   : recipe.instructions || "",
+//                               })
+//                             }
+//                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-medium transition"
+//                           >
+//                             <FaEdit /> Edit
+//                           </button>
+//                           <button
+//                             onClick={() => handleDelete(recipe._id)}
+//                             disabled={deletingId === recipe._id}
+//                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 text-xs font-medium transition disabled:opacity-50"
+//                           >
+//                             {deletingId === recipe._id ? (
+//                               <FaSpinner className="animate-spin" />
+//                             ) : (
+//                               <>
+//                                 <FaTrash /> Delete
+//                               </>
+//                             )}
+//                           </button>
+//                         </div>
+//                       </td>
+//                     </motion.tr>
+//                   ))}
+//                 </AnimatePresence>
+//               </tbody>
+//             </table>
+//           </div>
+//         )}
+//       </div>
+
+//       {/* --- UPDATE MODAL --- */}
+//       <AnimatePresence>
+//         {selectedRecipe && (
+//           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+//             <motion.div
+//               initial={{ opacity: 0, scale: 0.95 }}
+//               animate={{ opacity: 1, scale: 1 }}
+//               exit={{ opacity: 0, scale: 0.95 }}
+//               className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-xl max-h-[90vh] flex flex-col"
+//             >
+//               {/* Modal Header */}
+//               <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-800">
+//                 <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+//                   Update Recipe
+//                 </h2>
+//                 <button
+//                   onClick={() => setSelectedRecipe(null)}
+//                   className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-100 transition"
+//                 >
+//                   <FaTimes size={20} />
+//                 </button>
+//               </div>
+
+//               {/* Modal Form */}
+//               <form
+//                 onSubmit={handleUpdateSubmit}
+//                 className="p-6 space-y-4 overflow-y-auto"
+//               >
+//                 <div>
+//                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+//                     Recipe Name
+//                   </label>
+//                   <input
+//                     type="text"
+//                     required
+//                     value={selectedRecipe.name || ""}
+//                     onChange={(e) =>
+//                       setSelectedRecipe({
+//                         ...selectedRecipe,
+//                         name: e.target.value,
+//                       })
+//                     }
+//                     className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+//                   />
+//                 </div>
+
+//                 <div className="grid grid-cols-2 gap-4">
+//                   <div>
+//                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+//                       Category
+//                     </label>
+//                     <input
+//                       type="text"
+//                       required
+//                       value={selectedRecipe.category || ""}
+//                       onChange={(e) =>
+//                         setSelectedRecipe({
+//                           ...selectedRecipe,
+//                           category: e.target.value,
+//                         })
+//                       }
+//                       className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+//                     />
+//                   </div>
+
+//                   <div>
+//                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+//                       Cuisine
+//                     </label>
+//                     <input
+//                       type="text"
+//                       value={selectedRecipe.cuisine || ""}
+//                       onChange={(e) =>
+//                         setSelectedRecipe({
+//                           ...selectedRecipe,
+//                           cuisine: e.target.value,
+//                         })
+//                       }
+//                       className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+//                     />
+//                   </div>
+//                 </div>
+
+//                 <div className="grid grid-cols-2 gap-4">
+//                   <div>
+//                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+//                       Prep Time (mins)
+//                     </label>
+//                     <input
+//                       type="number"
+//                       required
+//                       value={selectedRecipe.prepTime || ""}
+//                       onChange={(e) =>
+//                         setSelectedRecipe({
+//                           ...selectedRecipe,
+//                           prepTime: e.target.value,
+//                         })
+//                       }
+//                       className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+//                     />
+//                   </div>
+
+//                   <div>
+//                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+//                       Price ($)
+//                     </label>
+//                     <input
+//                       type="number"
+//                       step="0.01"
+//                       value={selectedRecipe.price ?? ""}
+//                       onChange={(e) =>
+//                         setSelectedRecipe({
+//                           ...selectedRecipe,
+//                           price: e.target.value,
+//                         })
+//                       }
+//                       className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+//                     />
+//                   </div>
+//                 </div>
+
+//                 <div>
+//                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+//                     Image URL
+//                   </label>
+//                   <input
+//                     type="url"
+//                     value={selectedRecipe.image || ""}
+//                     onChange={(e) =>
+//                       setSelectedRecipe({
+//                         ...selectedRecipe,
+//                         image: e.target.value,
+//                       })
+//                     }
+//                     className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+//                   />
+//                 </div>
+
+//                 <div>
+//                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+//                     Ingredients (comma separated)
+//                   </label>
+//                   <textarea
+//                     rows={2}
+//                     value={selectedRecipe.ingredients || ""}
+//                     onChange={(e) =>
+//                       setSelectedRecipe({
+//                         ...selectedRecipe,
+//                         ingredients: e.target.value,
+//                       })
+//                     }
+//                     className="w-full px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-orange-500"
+//                   />
+//                 </div>
+
+//                 {/* Form Actions */}
+//                 <div className="flex justify-end gap-3 pt-4">
+//                   <button
+//                     type="button"
+//                     onClick={() => setSelectedRecipe(null)}
+//                     className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 transition"
+//                   >
+//                     Cancel
+//                   </button>
+//                   <button
+//                     type="submit"
+//                     disabled={isUpdating}
+//                     className="px-5 py-2 rounded-xl bg-orange-600 text-white hover:bg-orange-700 transition flex items-center gap-2 disabled:opacity-50"
+//                   >
+//                     {isUpdating && <FaSpinner className="animate-spin" />} Save
+//                     Changes
+//                   </button>
+//                 </div>
+//               </form>
+//             </motion.div>
+//           </div>
+//         )}
+//       </AnimatePresence>
+//     </div>
+//   );
+// };
+
+// export default MyRecipesPage;
 
 
 
