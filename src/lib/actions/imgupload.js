@@ -2,6 +2,11 @@
 
 
 
+
+
+// ok code 
+
+
 export const imageupload = async (image) => {
     const formData = new FormData();
     formData.append("image", image);

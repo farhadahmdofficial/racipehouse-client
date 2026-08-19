@@ -2,7 +2,7 @@
 
 
 
-
+// ok code 
 
 
 'use client';
@@ -65,13 +65,18 @@ const DashboardLayout = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col md:flex-row">
       {/* Sidebar */}
+
+
       <aside className="w-full md:w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-6 space-y-8">
         <div className="flex items-center gap-2">
           <span className="text-2xl font-black text-orange-600">RecipeHouse</span>
+          
+
           <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase">
             {user?.role === 'admin' ? 'Admin' : 'User'}
           </span>
           <div >
+            
             {user?.plan === 'pro' ? <span className="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase">pro</span> : <div className='hidden'>tttt</div>}
           </div>
         </div>

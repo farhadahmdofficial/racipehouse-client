@@ -1,17 +1,31 @@
 
 
+
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { FaClock, FaUtensils, FaGlobe, FaHeart, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { 
+  FaClock, 
+  FaUtensils, 
+  FaGlobe, 
+  FaHeart, 
+  FaChevronLeft, 
+  FaChevronRight, 
+  FaSearch, 
+  FaTimes 
+} from 'react-icons/fa';
 import { getRecipes } from '@/lib/actions/recipes';
 
 const BrowseRecipes = () => {
   const [recipes, setRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // Search State
+  const [searchTerm, setSearchTerm] = useState('');
+
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -20,32 +34,54 @@ const BrowseRecipes = () => {
   useEffect(() => {
     let isMounted = true;
 
-    const fetchAllRecipes = async () => {
-      try {
-        setLoading(true);
-        const result = await getRecipes(currentPage, LIMIT);
-        
-        if (isMounted) {
-          if (result?.recipes) {
-            setRecipes(result.recipes);
-            setTotalPages(result.totalPages || 1);
-          } else if (Array.isArray(result)) {
-            setRecipes(result);
+    // Debounce Mechanism to prevent unnecessary API calls on every keystroke
+    const delayDebounceFn = setTimeout(() => {
+      const fetchAllRecipes = async () => {
+        try {
+          setLoading(true);
+          // Pass searchTerm to your server action / API call
+          const result = await getRecipes(currentPage, LIMIT, searchTerm);
+          
+          if (isMounted) {
+            if (result?.recipes) {
+              setRecipes(result.recipes);
+              setTotalPages(result.totalPages || 1);
+            } else if (Array.isArray(result)) {
+              setRecipes(result);
+              setTotalPages(1);
+            } else {
+              setRecipes([]);
+              setTotalPages(1);
+            }
           }
+        } catch (error) {
+          console.error("Failed to fetch recipes:", error);
+          if (isMounted) setRecipes([]);
+        } finally {
+          if (isMounted) setLoading(false);
         }
-      } catch (error) {
-        console.error("Failed to fetch recipes:", error);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
+      };
 
-    fetchAllRecipes();
+      fetchAllRecipes();
+    }, 400); // 400ms delay
 
     return () => {
       isMounted = false;
+      clearTimeout(delayDebounceFn);
     };
-  }, [currentPage]);
+  }, [currentPage, searchTerm]);
+
+  // Handle Search Input
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1); // Search করলে প্রথম পেজে রিসেট হবে
+  };
+
+  // Clear Search
+  const handleClearSearch = () => {
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -54,20 +90,12 @@ const BrowseRecipes = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 flex justify-center items-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-600"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
-        <div className="text-center max-w-2xl mx-auto mb-12">
+        <div className="text-center max-w-2xl mx-auto mb-8">
           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white sm:text-4xl">
             Browse All Recipes
           </h1>
@@ -76,10 +104,45 @@ const BrowseRecipes = () => {
           </p>
         </div>
 
-        {/* No Recipes Found Handling */}
-        {recipes.length === 0 ? (
-          <div className="text-center text-gray-500 py-12">
-            No recipes found!
+        {/* Search Bar Section */}
+        <div className="mb-10 max-w-xl mx-auto">
+          <div className="relative">
+            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder="Search recipes by name..."
+              className="w-full pl-11 pr-10 py-3.5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm transition duration-200"
+            />
+            {searchTerm && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1"
+              >
+                <FaTimes />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Loading Spinner */}
+        {loading ? (
+          <div className="min-h-[300px] flex justify-center items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-600"></div>
+          </div>
+        ) : recipes.length === 0 ? (
+          /* No Recipes Found Handling */
+          <div className="text-center text-gray-500 dark:text-gray-400 py-16 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800">
+            <p className="text-lg font-medium">No recipes found matching "{searchTerm}"</p>
+            {searchTerm && (
+              <button
+                onClick={handleClearSearch}
+                className="mt-4 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-medium transition"
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -221,6 +284,236 @@ const BrowseRecipes = () => {
 };
 
 export default BrowseRecipes;
+
+
+
+
+
+
+
+// ok code
+
+// 'use client';
+
+// import React, { useState, useEffect } from 'react';
+// import Link from 'next/link';
+// import { motion } from 'framer-motion';
+// import { FaClock, FaUtensils, FaGlobe, FaHeart, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+// import { getRecipes } from '@/lib/actions/recipes';
+
+// const BrowseRecipes = () => {
+//   const [recipes, setRecipes] = useState([]);
+//   const [loading, setLoading] = useState(true);
+  
+//   // Pagination States
+//   const [currentPage, setCurrentPage] = useState(1);
+//   const [totalPages, setTotalPages] = useState(1);
+//   const LIMIT = 10;
+
+//   useEffect(() => {
+//     let isMounted = true;
+
+//     const fetchAllRecipes = async () => {
+//       try {
+//         setLoading(true);
+//         const result = await getRecipes(currentPage, LIMIT);
+        
+//         if (isMounted) {
+//           if (result?.recipes) {
+//             setRecipes(result.recipes);
+//             setTotalPages(result.totalPages || 1);
+//           } else if (Array.isArray(result)) {
+//             setRecipes(result);
+//           }
+//         }
+//       } catch (error) {
+//         console.error("Failed to fetch recipes:", error);
+//       } finally {
+//         if (isMounted) setLoading(false);
+//       }
+//     };
+
+//     fetchAllRecipes();
+
+//     return () => {
+//       isMounted = false;
+//     };
+//   }, [currentPage]);
+
+//   const handlePageChange = (newPage) => {
+//     if (newPage >= 1 && newPage <= totalPages) {
+//       setCurrentPage(newPage);
+//       window.scrollTo({ top: 0, behavior: 'smooth' });
+//     }
+//   };
+
+//   if (loading) {
+//     return (
+//       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 flex justify-center items-center">
+//         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-600"></div>
+//       </div>
+//     );
+//   }
+
+//   return (
+//     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12 transition-colors duration-200">
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+//         {/* Header */}
+//         <div className="text-center max-w-2xl mx-auto mb-12">
+//           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white sm:text-4xl">
+//             Browse All Recipes
+//           </h1>
+//           <p className="mt-3 text-gray-600 dark:text-gray-400">
+//             Explore hundreds of delicious recipes created by home chefs and culinary experts.
+//           </p>
+//         </div>
+
+//         {/* No Recipes Found Handling */}
+//         {recipes.length === 0 ? (
+//           <div className="text-center text-gray-500 py-12">
+//             No recipes found!
+//           </div>
+//         ) : (
+//           <>
+//             {/* Recipes Grid */}
+//             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+//               {recipes.map((recipe, index) => {
+//                 const recipeId = recipe._id || recipe.id;
+
+//                 return (
+//                   <motion.div
+//                     key={recipeId || index}
+//                     initial={{ opacity: 0, y: 20 }}
+//                     animate={{ opacity: 1, y: 0 }}
+//                     transition={{ duration: 0.4, delay: index * 0.05 }}
+//                     whileHover={{ y: -6 }}
+//                     className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
+//                   >
+//                     <div>
+//                       {/* Image */}
+//                       <div className="relative h-48 w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+//                         <img
+//                           src={recipe.image || 'https://via.placeholder.com/600x400?text=No+Image'}
+//                           alt={recipe.name || 'Recipe'}
+//                           className="w-full h-full object-cover"
+//                         />
+//                         <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+//                           <FaHeart className="text-red-500" />
+//                           <span>{recipe.likesCount || 0}</span>
+//                         </div>
+//                         {Number(recipe.price) > 0 && (
+//                           <span className="absolute top-3 left-3 bg-orange-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+//                             ${recipe.price}
+//                           </span>
+//                         )}
+//                       </div>
+
+//                       {/* Content */}
+//                       <div className="p-6">
+//                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 line-clamp-1">
+//                           {recipe.name || 'Untitled Recipe'}
+//                         </h3>
+
+//                         <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-6">
+//                           <div className="flex items-center gap-2">
+//                             <FaUtensils className="text-orange-500" />
+//                             <span><strong>Category:</strong> {recipe.category || 'N/A'}</span>
+//                           </div>
+//                           <div className="flex items-center gap-2">
+//                             <FaGlobe className="text-orange-500" />
+//                             <span><strong>Cuisine:</strong> {recipe.cuisine || 'N/A'}</span>
+//                           </div>
+//                           <div className="flex items-center gap-2">
+//                             <FaClock className="text-orange-500" />
+//                             <span><strong>Prep Time:</strong> {recipe.prepTime ? `${recipe.prepTime} mins` : 'N/A'}</span>
+//                           </div>
+//                         </div>
+//                       </div>
+//                     </div>
+
+//                     {/* View Details Button */}
+//                     <div className="p-6 pt-0">
+//                       {recipeId ? (
+//                         <Link
+//                           href={`/browserecipes/${recipeId}`}
+//                           className="w-full block text-center bg-orange-600 hover:bg-orange-700 text-white font-medium py-2.5 rounded-xl transition duration-200 cursor-pointer"
+//                         >
+//                           View Details
+//                         </Link>
+//                       ) : (
+//                         <button
+//                           disabled
+//                           className="w-full bg-gray-300 dark:bg-gray-800 text-gray-500 font-medium py-2.5 rounded-xl cursor-not-allowed"
+//                         >
+//                           Invalid Recipe ID
+//                         </button>
+//                       )}
+//                     </div>
+//                   </motion.div>
+//                 );
+//               })}
+//             </div>
+
+//             {/* Smart Pagination Controls */}
+//             {totalPages > 1 && (
+//               <div className="mt-12 flex justify-center items-center gap-2">
+//                 <button
+//                   onClick={() => handlePageChange(currentPage - 1)}
+//                   disabled={currentPage === 1}
+//                   className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+//                 >
+//                   <FaChevronLeft className="text-sm" />
+//                 </button>
+
+//                 {Array.from({ length: totalPages }, (_, i) => i + 1)
+//                   .filter((pageNum) => {
+//                     return (
+//                       pageNum === 1 ||
+//                       pageNum === totalPages ||
+//                       Math.abs(pageNum - currentPage) <= 1
+//                     );
+//                   })
+//                   .map((pageNum, index, array) => {
+//                     const showEllipsis = index > 0 && pageNum - array[index - 1] > 1;
+
+//                     return (
+//                       <React.Fragment key={pageNum}>
+//                         {showEllipsis && (
+//                           <span className="px-2 text-gray-400">...</span>
+//                         )}
+//                         <button
+//                           onClick={() => handlePageChange(pageNum)}
+//                           className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+//                             currentPage === pageNum
+//                               ? 'bg-orange-600 text-white shadow-md'
+//                               : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+//                           }`}
+//                         >
+//                           {pageNum}
+//                         </button>
+//                       </React.Fragment>
+//                     );
+//                   })}
+
+//                 <button
+//                   onClick={() => handlePageChange(currentPage + 1)}
+//                   disabled={currentPage === totalPages}
+//                   className="p-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+//                 >
+//                   <FaChevronRight className="text-sm" />
+//                 </button>
+//               </div>
+//             )}
+//           </>
+//         )}
+
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default BrowseRecipes;
 
 
 
