@@ -3,26 +3,26 @@
 
 
 
-import { jwtClient } from "better-auth/client/plugins";
-import { createAuthClient } from "better-auth/react";
-
-// fallback URL সহ নিরাপদ baseURL সেটআপ
-const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL;
-
-export const authClient = createAuthClient({
-  baseURL: serverUrl,
-  plugins: [jwtClient()]
-});
-
 // import { jwtClient } from "better-auth/client/plugins";
 // import { createAuthClient } from "better-auth/react";
 
-// export const authClient = createAuthClient({
-//   // 💡 অবশ্যই এক্সপ্রেস সার্ভারের পোর্ট (5000) দিতে হবে!
-//   baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000",
-//   plugins :[jwtClient()]
+// // fallback URL সহ নিরাপদ baseURL সেটআপ
+// const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL;
 
+// export const authClient = createAuthClient({
+//   baseURL: serverUrl,
+//   plugins: [jwtClient()]
 // });
+
+import { jwtClient } from "better-auth/client/plugins";
+import { createAuthClient } from "better-auth/react";
+
+export const authClient = createAuthClient({
+  // 💡 অবশ্যই এক্সপ্রেস সার্ভারের পোর্ট (5000) দিতে হবে!
+  baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000",
+  plugins :[jwtClient()]
+
+});
 
 
 

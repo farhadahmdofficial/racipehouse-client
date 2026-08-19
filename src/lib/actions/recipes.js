@@ -6,7 +6,7 @@ import { getTokenSever } from "./getTokenSever";
 
 
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || "https://racipehouse-sever.vercel.app";
 
 
 export const addrecipe = async (data) => {
@@ -142,10 +142,6 @@ export const addrecipe = async (data) => {
 
 
 
-
-
-
-
 export const getRecipes = async (page = 1, limit = 10, search = "") => {
   try {
     const params = new URLSearchParams();
@@ -158,21 +154,65 @@ export const getRecipes = async (page = 1, limit = 10, search = "") => {
       params.append("search", search.trim());
     }
 
-    const res = await fetch(`${SERVER_URL}/recipes?${params.toString()}`, {
-      cache: "no-store", // সবসময় সর্বশেষ আপডেটেড ডাটা পাওয়ার জন্য
+    // ব্যাকএন্ড URL নিশ্চিত করা
+    const apiUrl = `${SERVER_URL}/recipes?${params.toString()}`;
+
+    const res = await fetch(apiUrl, {
+      cache: "no-store", // সবসময় নতুন ডাটা পাওয়ার জন্য
+      headers: {
+        "Content-Type": "application/json",
+      },
     });
 
     if (!res.ok) {
-      throw new Error("Failed to fetch recipes");
+      throw new Error(`Failed to fetch recipes: Status ${res.status}`);
     }
 
     const result = await res.json();
     return result;
   } catch (error) {
     console.error("Error fetching recipes:", error);
+    // খালি রেসপন্স যাতে অ্যাপ ক্র্যাশ না করে
     return { success: false, recipes: [], totalPages: 1 };
   }
 };
+
+
+
+
+
+
+// ok code 
+
+
+
+// export const getRecipes = async (page = 1, limit = 10, search = "") => {
+//   try {
+//     const params = new URLSearchParams();
+
+//     params.append("page", page.toString());
+//     params.append("limit", limit.toString());
+
+//     // শুধুমাত্র যদি সার্চ টার্ম ফিল্ডে কিছু লেখা থাকে, তবেই URLEncode করে প্যারামিটারে যুক্ত করা হবে
+//     if (search && search.trim() !== "") {
+//       params.append("search", search.trim());
+//     }
+
+//     const res = await fetch(`${SERVER_URL}/recipes?${params.toString()}`, {
+//       cache: "no-store", // সবসময় সর্বশেষ আপডেটেড ডাটা পাওয়ার জন্য
+//     });
+
+//     if (!res.ok) {
+//       throw new Error("Failed to fetch recipes");
+//     }
+
+//     const result = await res.json();
+//     return result;
+//   } catch (error) {
+//     console.error("Error fetching recipes:", error);
+//     return { success: false, recipes: [], totalPages: 1 };
+//   }
+// };
 
 
 
