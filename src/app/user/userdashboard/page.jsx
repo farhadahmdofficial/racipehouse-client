@@ -26,7 +26,7 @@ const UserDashboard = () => {
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user 
   const role = user?.role || 'user'; // ডিফল্টভাবে 'user' ধরে নেওয়া হবে যদি role না থাকে
-  console.log(role);
+  // console.log(role);
 
   // 📌 1. Active Tab State Management
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'add' | 'my-recipes' | 'purchased'

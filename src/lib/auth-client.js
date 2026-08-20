@@ -1,4 +1,14 @@
 
+import { createAuthClient } from "better-auth/react";
+import { jwtClient } from "better-auth/client/plugins";
+
+export const authClient = createAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || "http://localhost:3000",
+  plugins: [jwtClient()],
+});
+
+
+
 
 
 
@@ -14,15 +24,17 @@
 //   plugins: [jwtClient()]
 // });
 
-import { jwtClient } from "better-auth/client/plugins";
-import { createAuthClient } from "better-auth/react";
+// ok cdoe 
 
-export const authClient = createAuthClient({
-  // 💡 অবশ্যই এক্সপ্রেস সার্ভারের পোর্ট (5000) দিতে হবে!
-  baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000",
-  plugins :[jwtClient()]
+// import { jwtClient } from "better-auth/client/plugins";
+// import { createAuthClient } from "better-auth/react";
 
-});
+// export const authClient = createAuthClient({
+//   // 💡 অবশ্যই এক্সপ্রেস সার্ভারের পোর্ট (5000) দিতে হবে!
+//   baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:5000",
+//   plugins :[jwtClient()]
+
+// });
 
 
 

@@ -19,7 +19,7 @@ const RunningBanner = () => {
 
 // pathme
      const pathname = usePathname();
-      console.log(pathname);
+      // console.log(pathname);
       if(pathname==="/dashboard" || pathname==="/dashboard/users/favorites" || pathname==="/dashboard/users/myrecipes" || pathname==="/dashboard/users/mypurchased" || pathname==="/dashboard/users/addrecipe" || pathname==="/dashboard/profile"   ){
         return null; // যদি ইউজার ড্যাশবোর্ড পেজে থাকি, তাহলে নেভবার রেন্ডার হবে না
       }
