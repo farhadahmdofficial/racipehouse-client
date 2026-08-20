@@ -206,7 +206,8 @@ const BrowseRecipes = () => {
                     <div className="p-6 pt-0">
                       {recipeId ? (
                         <Link
-                          href={`/browserecipes/${recipeId}`}
+                          href={`/recipes/${recipeId}`}
+                          // href={`/browserecipes/${recipeId}`}
                           className="w-full block text-center bg-orange-600 hover:bg-orange-700 text-white font-medium py-2.5 rounded-xl transition duration-200 cursor-pointer"
                         >
                           View Details
