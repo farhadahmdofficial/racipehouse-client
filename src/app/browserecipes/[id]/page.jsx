@@ -25,7 +25,7 @@ import {
   FaCheck
 } from 'react-icons/fa';
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://recipehouse-sever.vercel.app';
 
 const RecipeDetailsPage = ({ params }) => {
   const router = useRouter();
