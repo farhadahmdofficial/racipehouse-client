@@ -22,7 +22,11 @@ import {
   FaCheck
 } from 'react-icons/fa';
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://recipehouse-server.vercel.app';
+// Fixed Server URL (sever typo fixed)
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://recipehouse-sever.vercel.app';
+
+
+
 
 const RecipeDetailsPage = () => {
   const router = useRouter();
@@ -66,6 +70,7 @@ const RecipeDetailsPage = () => {
         const data = await res.json();
 
         if (isMounted) {
+          // MongoDB direct object handling
           const recipeData = data?.data || data;
           
           if (recipeData && (recipeData._id || recipeData.name)) {
