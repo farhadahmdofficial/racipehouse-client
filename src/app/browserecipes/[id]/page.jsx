@@ -22,11 +22,8 @@ import {
   FaCheck
 } from 'react-icons/fa';
 
-// Fixed Server URL (sever typo fixed)
+// Fixed Server URL: Fixed "sever" to "server" and "racipe" to "recipe"
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://recipehouse-sever.vercel.app';
-
-
-
 
 const RecipeDetailsPage = () => {
   const router = useRouter();
@@ -54,13 +51,12 @@ const RecipeDetailsPage = () => {
     let isMounted = true;
 
     const fetchRecipe = async () => {
-      if (!recipeId) {
-        setLoading(false);
-        return;
-      }
+      if (!recipeId) return;
 
       try {
         setLoading(true);
+        console.log("Fetching recipe from:", `${SERVER_URL}/recipes/${recipeId}`);
+        
         const res = await fetch(`${SERVER_URL}/recipes/${recipeId}`);
         
         if (!res.ok) {
@@ -68,12 +64,13 @@ const RecipeDetailsPage = () => {
         }
 
         const data = await res.json();
+        console.log("Fetched Recipe Data:", data);
 
         if (isMounted) {
           // MongoDB direct object handling
           const recipeData = data?.data || data;
           
-          if (recipeData && (recipeData._id || recipeData.name)) {
+          if (recipeData && (recipeData._id || recipeData.name || recipeData.title)) {
             setRecipe(recipeData);
 
             if (userId) {
@@ -217,9 +214,10 @@ const RecipeDetailsPage = () => {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl p-8 max-w-md text-center shadow-md">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Recipe Not Found</h2>
+          <p className="text-gray-500 text-sm mb-4">The requested recipe could not be loaded from the server.</p>
           <button
             onClick={() => router.back()}
-            className="mt-4 inline-flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-orange-700 transition"
+            className="mt-2 inline-flex items-center gap-2 bg-orange-600 text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-orange-700 transition"
           >
             <FaArrowLeft /> Go Back
           </button>
@@ -252,7 +250,7 @@ const RecipeDetailsPage = () => {
           <div className="relative h-72 sm:h-96 w-full bg-gray-200 dark:bg-gray-800">
             <img
               src={recipe.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'}
-              alt={recipe.name || 'Recipe'}
+              alt={recipe.name || recipe.title || 'Recipe'}
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
@@ -262,7 +260,7 @@ const RecipeDetailsPage = () => {
                 {recipe.category || 'General Recipe'}
               </span>
               <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-2">
-                {recipe.name || 'Untitled Recipe'}
+                {recipe.name || recipe.title || 'Untitled Recipe'}
               </h1>
               <p className="text-gray-300 text-sm sm:text-base">
                 Created by <span className="text-white font-semibold">{recipe.authorName || recipe.userEmail || 'Chef'}</span>
@@ -311,7 +309,7 @@ const RecipeDetailsPage = () => {
               {Number(recipe.price) > 0 && !recipe.isPurchased ? (
                 <form action="/api/payment" method="POST">
                   <input type="hidden" value={recipe.price} name="price" />
-                  <input type="hidden" value={recipe.name} name="name" />
+                  <input type="hidden" value={recipe.name || recipe.title} name="name" />
                   <input type="hidden" value={recipe._id} name="recipeId" />
 
                   <button
