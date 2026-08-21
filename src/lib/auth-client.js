@@ -48,6 +48,10 @@ export const authClient = createAuthClient({
 //   plugins: [jwtClient()]
 // });
 
+
+
+
+
 // ok cdoe 
 
 // import { jwtClient } from "better-auth/client/plugins";

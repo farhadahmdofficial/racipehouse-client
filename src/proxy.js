@@ -1,14 +1,21 @@
 
 
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
 
 export async function proxy(request) {
-  const cookieHeader = request.headers.get('cookie') || '';
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+
+  if (!allCookies || allCookies.length === 0) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
 
   try {
-    // 1. ব্যাকএন্ডে রিকোয়েস্ট পাঠিয়ে সেশন ও রোল ফালতু ডাটাবেজ কানেকশন ছাড়াই সরাসরি আনা
     const sessionRes = await fetch(`${BACKEND_URL}/api/auth/get-session`, {
       headers: {
         cookie: cookieHeader,
@@ -22,7 +29,6 @@ export async function proxy(request) {
 
     const session = await sessionRes.json();
 
-    // সেশন না থাকলে রিডাইরেক্ট
     if (!session || !session?.user) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
@@ -30,12 +36,10 @@ export async function proxy(request) {
     const role = session.user?.role;
     const userPlan = session.user?.plan || 'free';
 
-    // 2. Admin হলে কোনো বাধা নেই
     if (role === 'admin') {
       return NextResponse.next();
     }
 
-    // 3. Free ইউজার যদি Add Recipe পেজে যেতে চায়, তবেই কেবল কাউন্ট চেক হবে
     const isAddingRecipe = request.nextUrl.pathname === '/dashboard/add-recipe';
 
     if (userPlan === 'free' && isAddingRecipe) {
@@ -54,21 +58,17 @@ export async function proxy(request) {
       }
     }
 
-    // 4. Pro ইউজার অথবা সাধারণ ড্যাশবোর্ড পেজের জন্য পাস
     return NextResponse.next();
 
   } catch (error) {
-    console.error("Proxy Middleware Error:", error?.message || error);
+    console.error("Proxy Error:", error);
     return NextResponse.redirect(new URL('/login', request.url));
   }
 }
 
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-  ],
+  matcher: ['/dashboard/:path*'],
 };
-
 
 
 
