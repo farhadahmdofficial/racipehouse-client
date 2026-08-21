@@ -62,7 +62,19 @@ const AddRecipe = () => {
 
 
 
+
   
+
+// Helper function: Image File to Base64 String
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result.split(',')[1]); // Only get base64 string
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 const handleRecipeSubmit = async (e) => {
   e.preventDefault();
 
@@ -77,30 +89,45 @@ const handleRecipeSubmit = async (e) => {
     const formData = new FormData(e.target);
     const imageFile = formData.get("image");
 
-    // ১. ফাইল সিলেক্ট করা হয়েছে কিনা চেক
     if (!imageFile || imageFile.size === 0) {
       toast.error("Please select an image!");
       setSubmitting(false);
       return;
     }
 
-    // ২. ইমেজের জন্য আলাদা FormData বানিয়ে পাঠানো
-    const imgFormData = new FormData();
-    imgFormData.append("image", imageFile);
+    // 1. File to Base64 Conversion
+    const base64Image = await fileToBase64(imageFile);
 
-    const imageRes = await imageupload(imgFormData);
+    // 2. ImgBB Upload Request
+    const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
 
-    // ৩. Safe check: imageRes বা url না থাকলে এরর থ্রো করবে
-    if (!imageRes?.url) {
-      throw new Error("Image upload failed. Check API Key or Internet.");
+    // Direct check for missing API Key in Vercel
+    if (!apiKey) {
+      throw new Error("ImgBB API Key is missing! Check Vercel Environment Variables.");
     }
 
+    const imgFormData = new FormData();
+    imgFormData.append("image", base64Image);
+
+    const imgRes = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+      method: "POST",
+      body: imgFormData,
+    });
+
+    const imgJson = await imgRes.json();
+
+    if (!imgJson.success || !imgJson.data?.url) {
+      console.error("ImgBB Raw Error:", imgJson);
+      throw new Error(imgJson.error?.message || "ImgBB image upload failed!");
+    }
+
+    const imageUrl = imgJson.data.url;
     const data = Object.fromEntries(formData.entries());
 
-    // ৪. রেসিপি সেভ করার অ্যাকশন
-    const result = await addrecipe({
+    // 3. Save Recipe in Database
+    await addrecipe({
       ...data,
-      image: imageRes.url,
+      image: imageUrl,
       userId: user.id,
     });
 
@@ -114,6 +141,63 @@ const handleRecipeSubmit = async (e) => {
     setSubmitting(false);
   }
 };
+
+
+
+  
+// const handleRecipeSubmit = async (e) => {
+//   e.preventDefault();
+
+//   if (!user?.id) {
+//     toast.error("Please login first!");
+//     return;
+//   }
+
+//   setSubmitting(true);
+
+//   try {
+//     const formData = new FormData(e.target);
+//     const imageFile = formData.get("image");
+
+//     // ১. ফাইল সিলেক্ট করা হয়েছে কিনা চেক
+//     if (!imageFile || imageFile.size === 0) {
+//       toast.error("Please select an image!");
+//       setSubmitting(false);
+//       return;
+//     }
+
+//     // ২. ইমেজের জন্য আলাদা FormData বানিয়ে পাঠানো
+//     const imgFormData = new FormData();
+//     imgFormData.append("image", imageFile);
+
+//     const imageRes = await imageupload(imgFormData);
+
+//     // ৩. Safe check: imageRes বা url না থাকলে এরর থ্রো করবে
+//     if (!imageRes?.url) {
+//       throw new Error("Image upload failed. Check API Key or Internet.");
+//     }
+
+//     const data = Object.fromEntries(formData.entries());
+
+//     // ৪. রেসিপি সেভ করার অ্যাকশন
+//     const result = await addrecipe({
+//       ...data,
+//       image: imageRes.url,
+//       userId: user.id,
+//     });
+
+//     toast.success("Recipe added successfully!");
+//     router.refresh();
+//     router.push("/dashboard/users/myrecipes");
+//   } catch (error) {
+//     console.error("Submission error:", error);
+//     toast.error(error.message || "Failed to add recipe.");
+//   } finally {
+//     setSubmitting(false);
+//   }
+// };
+
+// ok code 
 
 //   const handleRecipeSubmit = async (e) => {
 //   e.preventDefault();
