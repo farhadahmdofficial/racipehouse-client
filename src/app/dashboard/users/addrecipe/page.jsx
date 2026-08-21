@@ -60,30 +60,84 @@ const AddRecipe = () => {
 
   // Form Submission Handler 
 
+
+
   
-  const handleRecipeSubmit = async (e) => {
+const handleRecipeSubmit = async (e) => {
   e.preventDefault();
-  setSubmitting(true); // 👈 ১. বাটন লোডিং শুরু হবে
+
+  if (!user?.id) {
+    toast.error("Please login first!");
+    return;
+  }
+
+  setSubmitting(true);
 
   try {
-    const fromData = new FormData(e.target);
-    const data = Object.fromEntries(fromData.entries());
+    const formData = new FormData(e.target);
+    const imageFile = formData.get("image");
 
-    const image = await imageupload(data.image);
+    // ১. ফাইল সিলেক্ট করা হয়েছে কিনা চেক
+    if (!imageFile || imageFile.size === 0) {
+      toast.error("Please select an image!");
+      setSubmitting(false);
+      return;
+    }
 
-    const resullt = await addrecipe({ ...data, image: image.url, userId: user.id });
+    // ২. ইমেজের জন্য আলাদা FormData বানিয়ে পাঠানো
+    const imgFormData = new FormData();
+    imgFormData.append("image", imageFile);
 
-    console.log(resullt, 'recipe result');
+    const imageRes = await imageupload(imgFormData);
 
-    toast.success("Recipe added successfully!"); // 👈 ২. আপলোড শেষে নোটিফিকেশন দেবে
-    router.refresh(); 
-      router.push("/dashboard/users/myrecipes");
+    // ৩. Safe check: imageRes বা url না থাকলে এরর থ্রো করবে
+    if (!imageRes?.url) {
+      throw new Error("Image upload failed. Check API Key or Internet.");
+    }
+
+    const data = Object.fromEntries(formData.entries());
+
+    // ৪. রেসিপি সেভ করার অ্যাকশন
+    const result = await addrecipe({
+      ...data,
+      image: imageRes.url,
+      userId: user.id,
+    });
+
+    toast.success("Recipe added successfully!");
+    router.refresh();
+    router.push("/dashboard/users/myrecipes");
   } catch (error) {
     console.error("Submission error:", error);
+    toast.error(error.message || "Failed to add recipe.");
   } finally {
-    setSubmitting(false); // 👈 ৩. বাটন আবার আগের অবস্থায় ফিরবে
+    setSubmitting(false);
   }
-}
+};
+
+//   const handleRecipeSubmit = async (e) => {
+//   e.preventDefault();
+//   setSubmitting(true); // 👈 ১. বাটন লোডিং শুরু হবে
+
+//   try {
+//     const fromData = new FormData(e.target);
+//     const data = Object.fromEntries(fromData.entries());
+
+//     const image = await imageupload(data.image);
+
+//     const resullt = await addrecipe({ ...data, image: image.url, userId: user.id });
+
+//     console.log(resullt, 'recipe result');
+
+//     toast.success("Recipe added successfully!"); // 👈 ২. আপলোড শেষে নোটিফিকেশন দেবে
+//     router.refresh(); 
+//       router.push("/dashboard/users/myrecipes");
+//   } catch (error) {
+//     console.error("Submission error:", error);
+//   } finally {
+//     setSubmitting(false); // 👈 ৩. বাটন আবার আগের অবস্থায় ফিরবে
+//   }
+// }
 
 
 
