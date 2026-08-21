@@ -92,12 +92,19 @@ export const auth = betterAuth({
 
   // 🎯 Cross-Origin Secure Cookie Configuration
   advanced: {
-    useSecureCookies: true,
-    defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
-    },
+  useSecureCookies: true,
+  defaultCookieAttributes: {
+    sameSite: "lax", // 💡 'none' এর বদলে 'lax' দিন
+    secure: true,
   },
+},
+  // advanced: {
+  //   useSecureCookies: true,
+  //   defaultCookieAttributes: {
+  //     sameSite: "none",
+  //     secure: true,
+  //   },
+  // },
 
   plugins: [jwt()],
 
