@@ -1,68 +1,60 @@
 
 
-
 import { NextResponse } from 'next/server';
-import { auth } from './lib/auth';
-import { MongoClient } from 'mongodb';
 
-// Single DB Client Instance
-const client = new MongoClient(process.env.MONGODB_URI);
+const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
 
 export async function proxy(request) {
+  const cookieHeader = request.headers.get('cookie') || '';
+
   try {
-    // ১. কুকি থেকে সেশন নেওয়া
-    const session = await auth.api.getSession({
-      headers: request.headers,
+    // 1. ব্যাকএন্ডে রিকোয়েস্ট পাঠিয়ে সেশন ও রোল ফালতু ডাটাবেজ কানেকশন ছাড়াই সরাসরি আনা
+    const sessionRes = await fetch(`${BACKEND_URL}/api/auth/get-session`, {
+      headers: {
+        cookie: cookieHeader,
+      },
+      cache: 'no-store',
     });
 
-    // সেশন না থাকলে /login-এ রিডাইরেক্ট
+    if (!sessionRes.ok) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    const session = await sessionRes.json();
+
+    // সেশন না থাকলে রিডাইরেক্ট
     if (!session || !session?.user) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    // ২. সরাসরি MongoDB থেকে Fresh Data রিড করা
-    await client.connect();
-    const db = client.db("recipehouse");
-    
-    const dbUser = await db.collection("user").findOne({
-      $or: [
-        { id: session.user.id },
-        { email: session.user.email }
-      ]
-    });
+    const role = session.user?.role;
+    const userPlan = session.user?.plan || 'free';
 
-    // ডাটাবেজ থেকে Role এবং Plan তুলে আনা
-    const role = dbUser?.role || session.user?.role;
-    const userPlan = dbUser?.plan || session.user?.plan || 'free';
-
-    // 🎯 ৩. Admin হলে কোনো লিমিট থাকবে না (সরাসরি Access পাবে)
+    // 2. Admin হলে কোনো বাধা নেই
     if (role === 'admin') {
       return NextResponse.next();
     }
 
-    // 🎯 ৪. Free ইউজারের ক্ষেত্রে রেসিপি লিমিট চেক করা
-    if (userPlan === 'free') {
-      const userId = dbUser?.id || dbUser?._id?.toString() || session.user.id;
-      const userEmail = dbUser?.email || session.user.email;
+    // 3. Free ইউজার যদি Add Recipe পেজে যেতে চায়, তবেই কেবল কাউন্ট চেক হবে
+    const isAddingRecipe = request.nextUrl.pathname === '/dashboard/add-recipe';
 
-      // ইউজার কয়টি রেসিপি তৈরি করেছে তা কাউন্ট করা
-      const recipeCount = await db.collection("recipes").countDocuments({
-        $or: [
-          { userId: userId },
-          { userEmail: userEmail },
-          { "author.email": userEmail }
-        ]
+    if (userPlan === 'free' && isAddingRecipe) {
+      const countRes = await fetch(`${BACKEND_URL}/recipes/count?userId=${session.user.id}`, {
+        headers: {
+          cookie: cookieHeader,
+        },
+        cache: 'no-store',
       });
 
-      console.log(`Free User ${userEmail} total recipes:`, recipeCount);
-
-      // ২টির বেশি রেসিপি থাকলেই /pricing পেজে রিডাইরেক্ট
-      if (recipeCount >= 2) {
-        return NextResponse.redirect(new URL('/pricing', request.url));
+      if (countRes.ok) {
+        const { recipeCount } = await countRes.json();
+        if (recipeCount >= 2) {
+          return NextResponse.redirect(new URL('/pricing', request.url));
+        }
       }
     }
 
-    // 🎯 ৫. Pro ইউজার অথবা লিমিটের মধ্যে থাকা (<= 2) Free ইউজারের প্রবেশ
+    // 4. Pro ইউজার অথবা সাধারণ ড্যাশবোর্ড পেজের জন্য পাস
     return NextResponse.next();
 
   } catch (error) {
@@ -73,10 +65,95 @@ export async function proxy(request) {
 
 export const config = {
   matcher: [
-    '/dashboard/add-recipe', // রেসিপি ক্রিয়েট পেজ
-    '/dashboard/:path*', 
+    '/dashboard/:path*',
   ],
 };
+
+
+
+
+
+
+
+
+// ok code 
+
+// import { NextResponse } from 'next/server';
+// import { auth } from './lib/auth';
+// import { MongoClient } from 'mongodb';
+
+// // Single DB Client Instance
+// const client = new MongoClient(process.env.MONGODB_URI);
+
+// export async function proxy(request) {
+//   try {
+//     // ১. কুকি থেকে সেশন নেওয়া
+//     const session = await auth.api.getSession({
+//       headers: request.headers,
+//     });
+
+//     // সেশন না থাকলে /login-এ রিডাইরেক্ট
+//     if (!session || !session?.user) {
+//       return NextResponse.redirect(new URL('/login', request.url));
+//     }
+
+//     // ২. সরাসরি MongoDB থেকে Fresh Data রিড করা
+//     await client.connect();
+//     const db = client.db("recipehouse");
+    
+//     const dbUser = await db.collection("user").findOne({
+//       $or: [
+//         { id: session.user.id },
+//         { email: session.user.email }
+//       ]
+//     });
+
+//     // ডাটাবেজ থেকে Role এবং Plan তুলে আনা
+//     const role = dbUser?.role || session.user?.role;
+//     const userPlan = dbUser?.plan || session.user?.plan || 'free';
+
+//     // 🎯 ৩. Admin হলে কোনো লিমিট থাকবে না (সরাসরি Access পাবে)
+//     if (role === 'admin') {
+//       return NextResponse.next();
+//     }
+
+//     // 🎯 ৪. Free ইউজারের ক্ষেত্রে রেসিপি লিমিট চেক করা
+//     if (userPlan === 'free') {
+//       const userId = dbUser?.id || dbUser?._id?.toString() || session.user.id;
+//       const userEmail = dbUser?.email || session.user.email;
+
+//       // ইউজার কয়টি রেসিপি তৈরি করেছে তা কাউন্ট করা
+//       const recipeCount = await db.collection("recipes").countDocuments({
+//         $or: [
+//           { userId: userId },
+//           { userEmail: userEmail },
+//           { "author.email": userEmail }
+//         ]
+//       });
+
+//       console.log(`Free User ${userEmail} total recipes:`, recipeCount);
+
+//       // ২টির বেশি রেসিপি থাকলেই /pricing পেজে রিডাইরেক্ট
+//       if (recipeCount >= 2) {
+//         return NextResponse.redirect(new URL('/pricing', request.url));
+//       }
+//     }
+
+//     // 🎯 ৫. Pro ইউজার অথবা লিমিটের মধ্যে থাকা (<= 2) Free ইউজারের প্রবেশ
+//     return NextResponse.next();
+
+//   } catch (error) {
+//     console.error("Proxy Middleware Error:", error?.message || error);
+//     return NextResponse.redirect(new URL('/login', request.url));
+//   }
+// }
+
+// export const config = {
+//   matcher: [
+//     '/dashboard/add-recipe', // রেসিপি ক্রিয়েট পেজ
+//     '/dashboard/:path*', 
+//   ],
+// };
 
 
 
