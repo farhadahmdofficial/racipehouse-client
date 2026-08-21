@@ -13,6 +13,10 @@ export const addrecipe = async (data) => {
   try {
     const Token = await getTokenSever();
 
+    if (!Token) {
+      return { success: false, message: "Unauthorized. Token not found." };
+    }
+
     const res = await fetch(`${SERVER_URL}/recipes`, {
       method: "POST",
       headers: {
@@ -22,19 +26,31 @@ export const addrecipe = async (data) => {
       body: JSON.stringify(data),
     });
 
-    // ১. সার্ভার Response OK (200-299) না হলে
+    // 1. Response OK না হলে Handle করা
     if (!res.ok) {
       const errorText = await res.text();
       console.error("Server Response Error:", errorText);
-      return { success: false, message: `Server error: ${res.status}` };
+      return { 
+        success: false, 
+        message: `Server Error: ${res.statusText || res.status}` 
+      };
     }
 
-    // ২. Response OK হলে JSON পার্স করা
+    // 2. Response JSON Parse করা
     const result = await res.json();
-    return result;
+
+    // 3. Next.js Cache Revalidate করা (যেন নতুন ডাটা সাথে সাথে UI-তে শো করে)
+    revalidatePath("/dashboard/users/myrecipes");
+    revalidatePath("/recipes"); // যদি পাবলিক রেসিপি পেজ থাকে
+
+    return { success: true, data: result };
+
   } catch (error) {
     console.error("Error in addrecipe action:", error);
-    return { success: false, message: "Something went wrong" };
+    return { 
+      success: false, 
+      message: error.message || "Something went wrong" 
+    };
   }
 };
 
@@ -135,6 +151,11 @@ export const addrecipe = async (data) => {
 
 
 // ok code 
+
+
+
+
+
 export const getRecipes = async (page = 1, limit = 10) => {
   try {
     // URL Query Parameter হিসেবে page এবং limit পাঠানো হচ্ছে

@@ -1,13 +1,15 @@
 
 
 
-
 import { auth } from '@/lib/auth';
-import { MongoClient, ObjectId } from 'mongodb';
+import clientPromise from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 import Link from 'next/link';
 import { FaPlus } from 'react-icons/fa';
 import { headers } from 'next/headers';
-// import { mytollte } from '@/lib/actions/myrecipes';
+import { deleteRecipe } from '@/lib/actions/recipeActions';
+
+export const dynamic = 'force-dynamic';
 
 export default async function MyRecipesPage() {
   const headersList = await headers();
@@ -17,44 +19,58 @@ export default async function MyRecipesPage() {
     return (
       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12">
         <div className="max-w-7xl mx-auto px-4 text-center py-20 bg-white dark:bg-slate-900 rounded-2xl">
-          <h2 className="text-2xl font-bold mb-4">Please Login</h2>
-          <Link href="/login" className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl">
-            Login Now
+          <h2 className="text-2xl font-bold mb-4">Add your Recipe</h2>
+          <Link href="/dashboard/users/addrecipe" className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl">
+            Add Recipe
           </Link>
         </div>
       </div>
     );
   }
 
-  // ১. Session থেকে ID ও Email নেওয়া
   const userId = session?.user?.id;
   const userEmail = session?.user?.email;
 
-  const uri = process.env.MONGODB_URI;
-  if (!uri) throw new Error('Please add your Mongo URI to .env.local');
-
-  const client = new MongoClient(uri);
-
   try {
-    await client.connect();
+    const client = await clientPromise;
     const db = client.db('recipehouse');
 
-    // Safe ObjectId conversion
+    // Safe ObjectId conversion Check
     let userObjectId = null;
     if (userId && ObjectId.isValid(userId)) {
       userObjectId = new ObjectId(userId);
     }
 
-    // ২. ফিল্টারিং পছন্দমতো যেকোনো একটি মিললেই ডাটা নিয়ে আসবে
+    // Dynamic query conditions (Capital 'ID', Small 'id', Email & ObjectId-all covered)
+    const queryConditions = [];
+
+    if (userId) {
+      const cleanUserId = String(userId).trim();
+      queryConditions.push({ userId: cleanUserId });   // camelCase String
+      queryConditions.push({ userID: cleanUserId });   // Capital ID String
+      queryConditions.push({ user_id: cleanUserId });  // snake_case
+    }
+
+    if (userObjectId) {
+      queryConditions.push({ userId: userObjectId });  // camelCase ObjectId
+      queryConditions.push({ userID: userObjectId });  // Capital ID ObjectId
+      queryConditions.push({ user_id: userObjectId }); // snake_case ObjectId
+    }
+
+    if (userEmail) {
+      const cleanEmail = String(userEmail).trim();
+      queryConditions.push({ userEmail: cleanEmail });
+      queryConditions.push({ email: cleanEmail });
+      queryConditions.push({ user_email: cleanEmail });
+    }
+
+    const query = queryConditions.length > 0 ? { $or: queryConditions } : { _id: null };
+
+    // Debugging: terminal console check
+    console.log("👉 Fetching recipes for Query:", JSON.stringify(query));
+
     const recipes = await db.collection('recipes')
-      .find({
-        $or: [
-          { userId: userId },             // String matching
-          { userId: userObjectId },       // ObjectId matching
-          { userEmail: userEmail },       // Email matching (যদি সেভ থাকে)
-          { email: userEmail }
-        ]
-      })
+      .find(query)
       .sort({ createdAt: -1 })
       .toArray();
 
@@ -63,321 +79,693 @@ export default async function MyRecipesPage() {
       _id: recipe._id.toString()
     }));
 
-    
+    console.log("👉 Found Recipes Count:", formattedRecipes.length);
 
-    return (<div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
-          <div>
-            <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
-              My Recipes ({formattedRecipes.length})
-            </h1> 
-            
-
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Manage your culinary creations.
-            </p>
-          </div>
-          <Link
-            href="/dashboard/users/addrecipe"
-            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
-          >
-            <FaPlus /> Add New Recipe
-          </Link>
-        </div>
-
-        {/* Recipe List Table */}
-        {formattedRecipes.length === 0 ? (
-          <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
-            <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
-            <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
-              You haven't posted any recipes yet.
-            </p>
+    return (
+      <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+                My Recipes ({formattedRecipes.length})
+              </h1>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                Manage your culinary creations.
+              </p>
+            </div>
             <Link
               href="/dashboard/users/addrecipe"
-              className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+              className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
             >
-              Create Your First Recipe
+              <FaPlus /> Add New Recipe
             </Link>
           </div>
-        ) : (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
-                    <th className="py-4 px-6">Recipe</th>
-                    <th className="py-4 px-6">Category</th>
-                    <th className="py-4 px-6">Price</th>
-                    <th className="py-4 px-6">Status</th>
-                    <th className="py-4 px-6 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
-                  {formattedRecipes.map((recipe) => (
-                    <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
-                            alt={recipe.name || "Recipe"}
-                            className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
-                          />
-                          <div>
-                            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
-                              {recipe.name}
-                            </h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
-                              {recipe.instructions || recipe.description || "No description provided"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
-                        {recipe.category || 'General'}
-                      </td>
-                      <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
-                        ${recipe.price || 0}
-                      </td>
-                      <td className="py-4 px-6">
-                        {recipe.status && (
-                          <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
-                            recipe.status === 'approved'
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
-                          }`}>
-                            {recipe.status}
-                          </span>
-                        )}
-                      </td>
 
-                      {/* Server Action Form Delete Button */}
-                      <td className="py-4 px-6 text-right">
-                        <form >
-                          <input type="hidden" name="id" value={recipe._id} />
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-1 text-xs font-medium bg-red-50 dark:bg-red-950/40 hover:bg-red-600 text-red-600 hover:text-white dark:text-red-400 dark:hover:text-white border border-red-200 dark:border-red-800/60 px-3.5 py-1.5 rounded-lg transition"
-                          >
-                            Delete
-                          </button>
-                        </form>
-                        {/* <form action={deleterecipe}>
-                          <input type="hidden" name="id" value={recipe._id} />
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-1 text-xs font-medium bg-red-50 dark:bg-red-950/40 hover:bg-red-600 text-red-600 hover:text-white dark:text-red-400 dark:hover:text-white border border-red-200 dark:border-red-800/60 px-3.5 py-1.5 rounded-lg transition"
-                          >
-                            Delete
-                          </button>
-                        </form> */}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Recipe List */}
+          {formattedRecipes.length === 0 ? (
+            <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
+              <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
+              <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
+                You have not posted any recipes yet.
+              </p>
+              <Link
+                href="/dashboard/users/addrecipe"
+                className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+              >
+                Create Your First Recipe
+              </Link>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
+                      <th className="py-4 px-6">Recipe</th>
+                      <th className="py-4 px-6">Category</th>
+                      <th className="py-4 px-6">Price</th>
+                      <th className="py-4 px-6">Status</th>
+                      <th className="py-4 px-6 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
+                    {formattedRecipes.map((recipe) => (
+                      <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-4">
+                            <img
+                              src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+                              alt={recipe.name || "Recipe"}
+                              className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+                            />
+                            <div>
+                              <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
+                                {recipe.name}
+                              </h3>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
+                                {recipe.instructions || recipe.description || "No description provided"}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
+                          {recipe.category || 'General'}
+                        </td>
+                        <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
+                          ${recipe.price || 0}
+                        </td>
+                        <td className="py-4 px-6">
+                          {recipe.status && (
+                            <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+                              recipe.status === 'approved'
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                            }`}>
+                              {recipe.status}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <form action={deleteRecipe}>
+                            <input type="hidden" name="id" value={recipe._id} />
+                            <button
+                              type="submit"
+                              className="inline-flex items-center gap-1 text-xs font-medium bg-red-50 dark:bg-red-950/40 hover:bg-red-600 text-red-600 hover:text-white dark:text-red-400 dark:hover:text-white border border-red-200 dark:border-red-800/60 px-3.5 py-1.5 rounded-lg transition cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-    
-//     <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
-//   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-//     {/* Header */}
-//     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
-//       <div>
-//         <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
-//           My Recipes ({formattedRecipes.length})
-//         </h1>
-//         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-//           Manage your culinary creations.
-//         </p>
-//       </div>
-//       <Link
-//         href="/dashboard/users/addrecipe"
-//         className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
-//       >
-//         <FaPlus /> Add New Recipe
-//       </Link>
-//     </div>
-
-//     {/* Recipe List - Table View */}
-//     {formattedRecipes.length === 0 ? (
-//       <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
-//         <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
-//         <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
-//           You haven't posted any recipes yet.
-//         </p>
-//         <Link
-//           href="/dashboard/users/addrecipe"
-//           className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
-//         >
-//           Create Your First Recipe
-//         </Link>
-//       </div>
-//     ) : (
-//       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
-//         <div className="overflow-x-auto">
-//           <table className="w-full text-left border-collapse">
-//             <thead>
-//               <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
-//                 <th className="py-4 px-6">Recipe</th>
-//                 <th className="py-4 px-6">Category</th>
-//                 <th className="py-4 px-6">Price</th>
-//                 <th className="py-4 px-6">Status</th>
-//                 <th className="py-4 px-6 text-right">Action</th>
-//               </tr>
-//             </thead>
-//             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
-//               {formattedRecipes.map((recipe) => (
-//                 <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-//                   {/* Image & Title */}
-//                   <td className="py-4 px-6">
-//                     <div className="flex items-center gap-4">
-//                       <img
-//                         src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
-//                         alt={recipe.name || "Recipe"}
-//                         className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
-//                       />
-//                       <div>
-//                         <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
-//                           {recipe.name}
-//                         </h3>
-//                         <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
-//                           {recipe.instructions || recipe.description || "No description provided"}
-//                         </p>
-//                       </div>
-//                     </div>
-//                   </td>
-
-//                   {/* Category */}
-//                   <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
-//                     {recipe.category || 'General'}
-//                   </td>
-
-//                   {/* Price */}
-//                   <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
-//                     ${recipe.price || 0}
-//                   </td>
-
-//                   {/* Status */}
-//                   <td className="py-4 px-6">
-//                     {recipe.status && (
-//                       <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
-//                         recipe.status === 'approved'
-//                           ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-//                           : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
-//                       }`}>
-//                         {recipe.status}
-//                       </span>
-//                     )}
-//                   </td>
-
-//                   {/* Action */}
-//                   <td className="py-4 px-6 text-right">
-//                     <Link
-//                       href={`/dashboard/users/myrecipes/${recipe._id}`}
-//                       className="inline-block text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-orange-600 hover:text-white dark:hover:bg-orange-600 text-slate-700 dark:text-slate-300 px-3.5 py-1.5 rounded-lg transition"
-//                     >
-//                       View
-//                     </Link>
-//                   </td>
-//                 </tr>
-//               ))}
-//             </tbody>
-//           </table>
-//         </div>
-//       </div>
-//     )}
-//   </div>
-// </div>
-
-
-
-      // <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
-      //   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      //     {/* Header */}
-      //     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
-      //       <div>
-      //         <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
-      //           My Recipes ({formattedRecipes.length})
-      //         </h1>
-      //         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-      //           Manage your culinary creations.
-      //         </p>
-      //       </div>
-      //       <Link
-      //         href="/dashboard/users/addrecipe"
-      //         className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
-      //       >
-      //         <FaPlus /> Add New Recipe
-      //       </Link>
-      //     </div>
-
-      //     {/* Recipe List */}
-      //     {formattedRecipes.length === 0 ? (
-      //       <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
-      //         <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
-      //         <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
-      //           You haven't posted any recipes yet.
-      //         </p>
-      //         <Link
-      //           href="/dashboard/users/addrecipe"
-      //           className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
-      //         >
-      //           Create Your First Recipe
-      //         </Link>
-      //       </div>
-      //     ) : (
-      //       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      //         {formattedRecipes.map((recipe) => (
-      //           <div
-      //             key={recipe._id}
-      //             className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-slate-200 dark:border-slate-800/80"
-      //           >
-      //             <div className="w-full h-48 bg-slate-100 dark:bg-slate-800 relative">
-      //               <img
-      //                 src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
-      //                 alt={recipe.name || "Recipe"}
-      //                 className="w-full h-full object-cover"
-      //               />
-      //               {recipe.status && (
-      //                 <span className={`absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
-      //                   recipe.status === 'approved' 
-      //                     ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' 
-      //                     : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
-      //                 }`}>
-      //                   {recipe.status}
-      //                 </span>
-      //               )}
-      //             </div>
-      //             <div className="p-5">
-      //               <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-      //                 {recipe.name}
-      //               </h3>
-      //               <p className="text-slate-600 dark:text-slate-400 text-sm mb-3 line-clamp-2">
-      //                 {recipe.instructions || recipe.description || "No instructions provided"}
-      //               </p>
-      //               <div className="flex items-center justify-between text-xs text-slate-500 border-t pt-3 border-slate-100 dark:border-slate-800">
-      //                 <span>Category: {recipe.category || 'General'}</span>
-      //                 <span className="font-semibold text-orange-600 dark:text-orange-400">
-      //                   ${recipe.price || 0}
-      //                 </span>
-      //               </div>
-      //             </div>
-      //           </div>
-      //         ))}
-      //       </div>
-      //     )}
-      //   </div>
-      // </div>
     );
-  } finally {
-    await client.close();
+  } catch (error) {
+    console.error("Error fetching recipes:", error);
+    return <div className="text-center py-20 text-red-500">Failed to load recipes.</div>;
   }
 }
+
+
+
+
+
+// import { auth } from '@/lib/auth';
+// import { MongoClient, ObjectId } from 'mongodb';
+// import Link from 'next/link';
+// import { FaPlus } from 'react-icons/fa';
+// import { headers } from 'next/headers';
+// import { deleteRecipe } from '@/lib/actions/recipeActions';
+// import { useId } from 'react';
+
+// export const dynamic = 'force-dynamic';
+
+// export default async function MyRecipesPage() {
+//   const headersList = await headers();
+//   const session = await auth.api.getSession({ headers: headersList });
+
+//   if (!session) {
+//     return (
+//       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12">
+//         <div className="max-w-7xl mx-auto px-4 text-center py-20 bg-white dark:bg-slate-900 rounded-2xl">
+//           <h2 className="text-2xl font-bold mb-4"> Add  your Recipe</h2>
+//           <Link href="/addrecipe" className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl">
+//             Add Recipe
+//           </Link>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   const userId = session?.user?.id;
+//   const userEmail = session?.user?.email;
+
+//   console.log(userId,"userId");
+
+//   const uri = process.env.MONGODB_URI;
+//   if (!uri) throw new Error('Please add your Mongo URI to .env.local');
+
+//   const client = new MongoClient(uri);
+
+//   try {
+//     await client.connect();
+//     const db = client.db('recipehouse');
+
+//     // Safe ObjectId conversion Check
+//     let userObjectId = null;
+//     if (userId && ObjectId.isValid(userId)) {
+//       userObjectId = new ObjectId(userId);
+//     }
+
+//     // dynamic query conditions
+//     const queryConditions = [];
+
+//     if (userId) {
+//       queryConditions.push({ userId: userId });
+//       queryConditions.push({ userId: userId.trim() });
+//     }
+//     if (userObjectId) {
+//       queryConditions.push({ userId: userObjectId });
+//     }
+//     if (userEmail) {
+//       queryConditions.push({ userEmail: userEmail });
+//       queryConditions.push({ email: userEmail });
+//     }
+
+//     const query = queryConditions.length > 0 ? { $or: queryConditions } : { _id: null };
+
+//     const recipes = await db.collection('recipes')
+//       .find(query)
+//       .sort({ createdAt: -1 })
+//       .toArray();
+
+//     const formattedRecipes = recipes.map(recipe => ({
+//       ...recipe,
+//       _id: recipe._id.toString()
+//     }));
+//     console.log(formattedRecipes,'formattedRecipes');
+
+//     return (
+//       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+//         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+//           {/* Header */}
+//           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+//             <div>
+//               <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+//                 My Recipes ({formattedRecipes.length})
+//               </h1>
+//               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+//                 Manage your culinary creations.
+//               </p>
+//             </div>
+//             <Link
+//               href="/dashboard/users/addrecipe"
+//               className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+//             >
+//               <FaPlus /> Add New Recipe
+//             </Link>
+//           </div>
+
+//           {/* Recipe List */}
+//           {formattedRecipes.length === 0 ? (
+//             <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
+//               <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
+//               <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
+//                 You have not posted any recipes yet.
+//               </p>
+//               <Link
+//                 href="/dashboard/users/addrecipe"
+//                 className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+//               >
+//                 Create Your First Recipe
+//               </Link>
+//             </div>
+//           ) : (
+//             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
+//               <div className="overflow-x-auto">
+//                 <table className="w-full text-left border-collapse">
+//                   <thead>
+//                     <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
+//                       <th className="py-4 px-6">Recipe</th>
+//                       <th className="py-4 px-6">Category</th>
+//                       <th className="py-4 px-6">Price</th>
+//                       <th className="py-4 px-6">Status</th>
+//                       <th className="py-4 px-6 text-right">Action</th>
+//                     </tr>
+//                   </thead>
+//                   <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
+//                     {formattedRecipes.map((recipe) => (
+//                       <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+//                         <td className="py-4 px-6">
+//                           <div className="flex items-center gap-4">
+//                             <img
+//                               src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+//                               alt={recipe.name || "Recipe"}
+//                               className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+//                             />
+//                             <div>
+//                               <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
+//                                 {recipe.name}
+//                               </h3>
+//                               <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
+//                                 {recipe.instructions || recipe.description || "No description provided"}
+//                               </p>
+//                             </div>
+//                           </div>
+//                         </td>
+//                         <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
+//                           {recipe.category || 'General'}
+//                         </td>
+//                         <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
+//                           ${recipe.price || 0}
+//                         </td>
+//                         <td className="py-4 px-6">
+//                           {recipe.status && (
+//                             <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+//                               recipe.status === 'approved'
+//                                 ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+//                                 : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+//                             }`}>
+//                               {recipe.status}
+//                             </span>
+//                           )}
+//                         </td>
+//                         <td className="py-4 px-6 text-right">
+//                           <form action={deleteRecipe}>
+//                             <input type="hidden" name="id" value={recipe._id} />
+//                             <button
+//                               type="submit"
+//                               className="inline-flex items-center gap-1 text-xs font-medium bg-red-50 dark:bg-red-950/40 hover:bg-red-600 text-red-600 hover:text-white dark:text-red-400 dark:hover:text-white border border-red-200 dark:border-red-800/60 px-3.5 py-1.5 rounded-lg transition"
+//                             >
+//                               Delete
+//                             </button>
+//                           </form>
+//                         </td>
+//                       </tr>
+//                     ))}
+//                   </tbody>
+//                 </table>
+//               </div>
+//             </div>
+//           )}
+//         </div>
+//       </div>
+//     );
+//   } finally {
+//     await client.close();
+//   }
+// }
+
+
+
+// ok code 
+// import { auth } from '@/lib/auth';
+// import { MongoClient, ObjectId } from 'mongodb';
+// import Link from 'next/link';
+// import { FaPlus } from 'react-icons/fa';
+// import { headers } from 'next/headers';
+// // import { mytollte } from '@/lib/actions/myrecipes';
+
+// export default async function MyRecipesPage() {
+//   const headersList = await headers();
+//   const session = await auth.api.getSession({ headers: headersList });
+
+//   if (!session) {
+//     return (
+//       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12">
+//         <div className="max-w-7xl mx-auto px-4 text-center py-20 bg-white dark:bg-slate-900 rounded-2xl">
+//           <h2 className="text-2xl font-bold mb-4">Please Login</h2>
+//           <Link href="/login" className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl">
+//             Login Now
+//           </Link>
+//         </div>
+//       </div>
+//     );
+//   }
+
+//   // ১. Session থেকে ID ও Email নেওয়া
+//   const userId = session?.user?.id;
+//   const userEmail = session?.user?.email;
+
+//   const uri = process.env.MONGODB_URI;
+//   if (!uri) throw new Error('Please add your Mongo URI to .env.local');
+
+//   const client = new MongoClient(uri);
+
+//   try {
+//     await client.connect();
+//     const db = client.db('recipehouse');
+
+//     // Safe ObjectId conversion
+//     let userObjectId = null;
+//     if (userId && ObjectId.isValid(userId)) {
+//       userObjectId = new ObjectId(userId);
+//     }
+
+//     // ২. ফিল্টারিং পছন্দমতো যেকোনো একটি মিললেই ডাটা নিয়ে আসবে
+//     const recipes = await db.collection('recipes')
+//       .find({
+//         $or: [
+//           { userId: userId },             // String matching
+//           { userId: userObjectId },       // ObjectId matching
+//           { userEmail: userEmail },       // Email matching (যদি সেভ থাকে)
+//           { email: userEmail }
+//         ]
+//       })
+//       .sort({ createdAt: -1 })
+//       .toArray();
+
+//     const formattedRecipes = recipes.map(recipe => ({
+//       ...recipe,
+//       _id: recipe._id.toString()
+//     }));
+
+    
+
+//     return (<div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+//         {/* Header */}
+//         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+//           <div>
+//             <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+//               My Recipes ({formattedRecipes.length})
+//             </h1> 
+            
+
+//             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+//               Manage your culinary creations.
+//             </p>
+//           </div>
+//           <Link
+//             href="/dashboard/users/addrecipe"
+//             className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+//           >
+//             <FaPlus /> Add New Recipe
+//           </Link>
+//         </div>
+
+//         {/* Recipe List Table */}
+//         {formattedRecipes.length === 0 ? (
+//           <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
+//             <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
+//             <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
+//               You haven't posted any recipes yet.
+//             </p>
+//             <Link
+//               href="/dashboard/users/addrecipe"
+//               className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+//             >
+//               Create Your First Recipe
+//             </Link>
+//           </div>
+//         ) : (
+//           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
+//             <div className="overflow-x-auto">
+//               <table className="w-full text-left border-collapse">
+//                 <thead>
+//                   <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
+//                     <th className="py-4 px-6">Recipe</th>
+//                     <th className="py-4 px-6">Category</th>
+//                     <th className="py-4 px-6">Price</th>
+//                     <th className="py-4 px-6">Status</th>
+//                     <th className="py-4 px-6 text-right">Action</th>
+//                   </tr>
+//                 </thead>
+//                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
+//                   {formattedRecipes.map((recipe) => (
+//                     <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+//                       <td className="py-4 px-6">
+//                         <div className="flex items-center gap-4">
+//                           <img
+//                             src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+//                             alt={recipe.name || "Recipe"}
+//                             className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+//                           />
+//                           <div>
+//                             <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
+//                               {recipe.name}
+//                             </h3>
+//                             <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
+//                               {recipe.instructions || recipe.description || "No description provided"}
+//                             </p>
+//                           </div>
+//                         </div>
+//                       </td>
+//                       <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
+//                         {recipe.category || 'General'}
+//                       </td>
+//                       <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
+//                         ${recipe.price || 0}
+//                       </td>
+//                       <td className="py-4 px-6">
+//                         {recipe.status && (
+//                           <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+//                             recipe.status === 'approved'
+//                               ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+//                               : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+//                           }`}>
+//                             {recipe.status}
+//                           </span>
+//                         )}
+//                       </td>
+
+//                       {/* Server Action Form Delete Button */}
+//                       <td className="py-4 px-6 text-right">
+//                         <form >
+//                           <input type="hidden" name="id" value={recipe._id} />
+//                           <button
+//                             type="submit"
+//                             className="inline-flex items-center gap-1 text-xs font-medium bg-red-50 dark:bg-red-950/40 hover:bg-red-600 text-red-600 hover:text-white dark:text-red-400 dark:hover:text-white border border-red-200 dark:border-red-800/60 px-3.5 py-1.5 rounded-lg transition"
+//                           >
+//                             Delete
+//                           </button>
+//                         </form>
+//                         {/* <form action={deleterecipe}>
+//                           <input type="hidden" name="id" value={recipe._id} />
+//                           <button
+//                             type="submit"
+//                             className="inline-flex items-center gap-1 text-xs font-medium bg-red-50 dark:bg-red-950/40 hover:bg-red-600 text-red-600 hover:text-white dark:text-red-400 dark:hover:text-white border border-red-200 dark:border-red-800/60 px-3.5 py-1.5 rounded-lg transition"
+//                           >
+//                             Delete
+//                           </button>
+//                         </form> */}
+//                       </td>
+//                     </tr>
+//                   ))}
+//                 </tbody>
+//               </table>
+//             </div>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+    
+// //     <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+// //   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+// //     {/* Header */}
+// //     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+// //       <div>
+// //         <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+// //           My Recipes ({formattedRecipes.length})
+// //         </h1>
+// //         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+// //           Manage your culinary creations.
+// //         </p>
+// //       </div>
+// //       <Link
+// //         href="/dashboard/users/addrecipe"
+// //         className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+// //       >
+// //         <FaPlus /> Add New Recipe
+// //       </Link>
+// //     </div>
+
+// //     {/* Recipe List - Table View */}
+// //     {formattedRecipes.length === 0 ? (
+// //       <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
+// //         <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
+// //         <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
+// //           You haven't posted any recipes yet.
+// //         </p>
+// //         <Link
+// //           href="/dashboard/users/addrecipe"
+// //           className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+// //         >
+// //           Create Your First Recipe
+// //         </Link>
+// //       </div>
+// //     ) : (
+// //       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
+// //         <div className="overflow-x-auto">
+// //           <table className="w-full text-left border-collapse">
+// //             <thead>
+// //               <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
+// //                 <th className="py-4 px-6">Recipe</th>
+// //                 <th className="py-4 px-6">Category</th>
+// //                 <th className="py-4 px-6">Price</th>
+// //                 <th className="py-4 px-6">Status</th>
+// //                 <th className="py-4 px-6 text-right">Action</th>
+// //               </tr>
+// //             </thead>
+// //             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
+// //               {formattedRecipes.map((recipe) => (
+// //                 <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+// //                   {/* Image & Title */}
+// //                   <td className="py-4 px-6">
+// //                     <div className="flex items-center gap-4">
+// //                       <img
+// //                         src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+// //                         alt={recipe.name || "Recipe"}
+// //                         className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+// //                       />
+// //                       <div>
+// //                         <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
+// //                           {recipe.name}
+// //                         </h3>
+// //                         <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
+// //                           {recipe.instructions || recipe.description || "No description provided"}
+// //                         </p>
+// //                       </div>
+// //                     </div>
+// //                   </td>
+
+// //                   {/* Category */}
+// //                   <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
+// //                     {recipe.category || 'General'}
+// //                   </td>
+
+// //                   {/* Price */}
+// //                   <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
+// //                     ${recipe.price || 0}
+// //                   </td>
+
+// //                   {/* Status */}
+// //                   <td className="py-4 px-6">
+// //                     {recipe.status && (
+// //                       <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+// //                         recipe.status === 'approved'
+// //                           ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+// //                           : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+// //                       }`}>
+// //                         {recipe.status}
+// //                       </span>
+// //                     )}
+// //                   </td>
+
+// //                   {/* Action */}
+// //                   <td className="py-4 px-6 text-right">
+// //                     <Link
+// //                       href={`/dashboard/users/myrecipes/${recipe._id}`}
+// //                       className="inline-block text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-orange-600 hover:text-white dark:hover:bg-orange-600 text-slate-700 dark:text-slate-300 px-3.5 py-1.5 rounded-lg transition"
+// //                     >
+// //                       View
+// //                     </Link>
+// //                   </td>
+// //                 </tr>
+// //               ))}
+// //             </tbody>
+// //           </table>
+// //         </div>
+// //       </div>
+// //     )}
+// //   </div>
+// // </div>
+
+
+
+//       // <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+//       //   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+//       //     {/* Header */}
+//       //     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+//       //       <div>
+//       //         <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+//       //           My Recipes ({formattedRecipes.length})
+//       //         </h1>
+//       //         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+//       //           Manage your culinary creations.
+//       //         </p>
+//       //       </div>
+//       //       <Link
+//       //         href="/dashboard/users/addrecipe"
+//       //         className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+//       //       >
+//       //         <FaPlus /> Add New Recipe
+//       //       </Link>
+//       //     </div>
+
+//       //     {/* Recipe List */}
+//       //     {formattedRecipes.length === 0 ? (
+//       //       <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
+//       //         <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
+//       //         <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
+//       //           You haven't posted any recipes yet.
+//       //         </p>
+//       //         <Link
+//       //           href="/dashboard/users/addrecipe"
+//       //           className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+//       //         >
+//       //           Create Your First Recipe
+//       //         </Link>
+//       //       </div>
+//       //     ) : (
+//       //       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+//       //         {formattedRecipes.map((recipe) => (
+//       //           <div
+//       //             key={recipe._id}
+//       //             className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all border border-slate-200 dark:border-slate-800/80"
+//       //           >
+//       //             <div className="w-full h-48 bg-slate-100 dark:bg-slate-800 relative">
+//       //               <img
+//       //                 src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+//       //                 alt={recipe.name || "Recipe"}
+//       //                 className="w-full h-full object-cover"
+//       //               />
+//       //               {recipe.status && (
+//       //                 <span className={`absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+//       //                   recipe.status === 'approved' 
+//       //                     ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' 
+//       //                     : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+//       //                 }`}>
+//       //                   {recipe.status}
+//       //                 </span>
+//       //               )}
+//       //             </div>
+//       //             <div className="p-5">
+//       //               <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
+//       //                 {recipe.name}
+//       //               </h3>
+//       //               <p className="text-slate-600 dark:text-slate-400 text-sm mb-3 line-clamp-2">
+//       //                 {recipe.instructions || recipe.description || "No instructions provided"}
+//       //               </p>
+//       //               <div className="flex items-center justify-between text-xs text-slate-500 border-t pt-3 border-slate-100 dark:border-slate-800">
+//       //                 <span>Category: {recipe.category || 'General'}</span>
+//       //                 <span className="font-semibold text-orange-600 dark:text-orange-400">
+//       //                   ${recipe.price || 0}
+//       //                 </span>
+//       //               </div>
+//       //             </div>
+//       //           </div>
+//       //         ))}
+//       //       </div>
+//       //     )}
+//       //   </div>
+//       // </div>
+//     );
+//   } finally {
+//     await client.close();
+//   }
+// }
+
+
+
+
 
 
 
