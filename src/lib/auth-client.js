@@ -5,7 +5,7 @@ import { createAuthClient } from "better-auth/react";
 
 export const authClient = createAuthClient({
   // 💡 প্রডাকশন ব্যাকএন্ড URL Fallback ফিক্স
-  baseURL: process.env.NEXT_PUBLIC_SERVER_URL || "https://racipehouse-sever.vercel.app",
+  baseURL: process.env.NEXT_PUBLIC_CLIENT_URL || "https://racipehouse-client-theta.vercel.app",
   
   // 🎯 Cross-Domain Cookie আদান-প্রদানের জন্য এটি বাধ্যতামূলক
   fetchOptions: {
