@@ -63,14 +63,14 @@ const AddRecipe = () => {
 
 
 
-  
+
 
 // Helper function: Image File to Base64 String
 const fileToBase64 = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result.split(',')[1]); // Only get base64 string
+    reader.onload = () => resolve(reader.result.split(",")[1]); // Prefix (data:image/jpeg;base64,) বাদ দিয়ে শুধু string নেওয়া
     reader.onerror = (error) => reject(error);
   });
 };
@@ -95,36 +95,38 @@ const handleRecipeSubmit = async (e) => {
       return;
     }
 
-    // 1. File to Base64 Conversion
-    const base64Image = await fileToBase64(imageFile);
-
-    // 2. ImgBB Upload Request
     const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY;
-
-    // Direct check for missing API Key in Vercel
     if (!apiKey) {
-      throw new Error("ImgBB API Key is missing! Check Vercel Environment Variables.");
+      throw new Error("ImgBB API Key is missing in Vercel environment variables!");
     }
 
-    const imgFormData = new FormData();
-    imgFormData.append("image", base64Image);
+    // 1. Convert image to Base64
+    const base64Image = await fileToBase64(imageFile);
 
+    // 2. Prepare URLSearchParams for x-www-form-urlencoded format
+    const bodyParams = new URLSearchParams();
+    bodyParams.append("image", base64Image);
+
+    // 3. Send request to ImgBB
     const imgRes = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
       method: "POST",
-      body: imgFormData,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: bodyParams.toString(),
     });
 
     const imgJson = await imgRes.json();
 
     if (!imgJson.success || !imgJson.data?.url) {
-      console.error("ImgBB Raw Error:", imgJson);
-      throw new Error(imgJson.error?.message || "ImgBB image upload failed!");
+      console.error("ImgBB Raw Error Details:", imgJson);
+      throw new Error(imgJson?.error?.message || "Image upload failed. Check API key.");
     }
 
     const imageUrl = imgJson.data.url;
     const data = Object.fromEntries(formData.entries());
 
-    // 3. Save Recipe in Database
+    // 4. Save Recipe
     await addrecipe({
       ...data,
       image: imageUrl,
