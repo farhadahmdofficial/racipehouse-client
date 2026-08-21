@@ -23,7 +23,10 @@ import {
 } from 'react-icons/fa';
 
 // Fixed Server URL: Fixed "sever" to "server" and "racipe" to "recipe"
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
+// const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
+
+const rawServerUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
+const SERVER_URL = rawServerUrl.replace(/\/+$/, ''); // Clean trailing slash
 
 const RecipeDetailsPage = () => {
   const router = useRouter();
@@ -47,54 +50,117 @@ const RecipeDetailsPage = () => {
   const [reportReason, setReportReason] = useState('');
 
   // Fetch recipe data safely
-  useEffect(() => {
-    let isMounted = true;
+  // 1. Ensure SERVER_URL doesn't end with a trailing slash
 
-    const fetchRecipe = async () => {
-      if (!recipeId) return;
 
-      try {
-        setLoading(true);
-        console.log("Fetching recipe from:", `${SERVER_URL}/recipes/${recipeId}`);
-        
-        const res = await fetch(`${SERVER_URL}/recipes/${recipeId}`);
-        
-        if (!res.ok) {
-          throw new Error(`Failed to fetch: ${res.status}`);
-        }
+useEffect(() => {
+  let isMounted = true;
 
-        const data = await res.json();
-        console.log("Fetched Recipe Data:", data);
+  const fetchRecipe = async () => {
+    if (!recipeId) return;
 
-        if (isMounted) {
-          // MongoDB direct object handling
-          const recipeData = data?.data || data;
-          
-          if (recipeData && (recipeData._id || recipeData.name || recipeData.title)) {
-            setRecipe(recipeData);
-
-            if (userId) {
-              setHasLiked(recipeData.likedBy?.includes(userId) || false);
-              setIsFavorite(recipeData.favoritedBy?.includes(userId) || false);
-            }
-          } else {
-            setRecipe(null);
-          }
-        }
-      } catch (err) {
-        console.error("Recipe fetch error:", err);
-        if (isMounted) setRecipe(null);
-      } finally {
-        if (isMounted) setLoading(false);
+    try {
+      setLoading(true);
+      
+      // Clean endpoint construction
+      const endpoint = `${SERVER_URL}/recipes/${recipeId}`;
+      console.log("Fetching recipe from:", endpoint);
+      
+      const res = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store' // Prevents stale Vercel cache
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to fetch: ${res.status}`);
       }
-    };
 
-    fetchRecipe();
+      const data = await res.json();
+      console.log("Fetched Recipe Data:", data);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [recipeId, userId]);
+      if (isMounted) {
+        // Direct MongoDB Object or Wrapped Object check
+        const recipeData = data?.data || data;
+        
+        if (recipeData && (recipeData._id || recipeData.name || recipeData.title)) {
+          setRecipe(recipeData);
+
+          if (userId) {
+            setHasLiked(Array.isArray(recipeData.likedBy) && recipeData.likedBy.includes(userId));
+            setIsFavorite(Array.isArray(recipeData.favoritedBy) && recipeData.favoritedBy.includes(userId));
+          }
+        } else {
+          setRecipe(null);
+        }
+      }
+    } catch (err) {
+      console.error("Recipe fetch error:", err);
+      if (isMounted) setRecipe(null);
+    } finally {
+      if (isMounted) setLoading(false);
+    }
+  };
+
+  fetchRecipe();
+
+  return () => {
+    isMounted = false;
+  };
+}, [recipeId, userId]);
+
+
+
+  // useEffect(() => {
+  //   let isMounted = true;
+
+  //   const fetchRecipe = async () => {
+  //     if (!recipeId) return;
+
+  //     try {
+  //       setLoading(true);
+  //       console.log("Fetching recipe from:", `${SERVER_URL}/recipes/${recipeId}`);
+        
+  //       const res = await fetch(`${SERVER_URL}/recipes/${recipeId}`);
+        
+  //       if (!res.ok) {
+  //         throw new Error(`Failed to fetch: ${res.status}`);
+  //       }
+
+  //       const data = await res.json();
+  //       console.log("Fetched Recipe Data:", data);
+
+  //       if (isMounted) {
+  //         // MongoDB direct object handling
+  //         const recipeData = data?.data || data;
+          
+  //         if (recipeData && (recipeData._id || recipeData.name || recipeData.title)) {
+  //           setRecipe(recipeData);
+
+  //           if (userId) {
+  //             setHasLiked(recipeData.likedBy?.includes(userId) || false);
+  //             setIsFavorite(recipeData.favoritedBy?.includes(userId) || false);
+  //           }
+  //         } else {
+  //           setRecipe(null);
+  //         }
+  //       }
+  //     } catch (err) {
+  //       console.error("Recipe fetch error:", err);
+  //       if (isMounted) setRecipe(null);
+  //     } finally {
+  //       if (isMounted) setLoading(false);
+  //     }
+  //   };
+
+  //   fetchRecipe();
+
+  //   return () => {
+  //     isMounted = false;
+  //   };
+  // }, [recipeId, userId]);
 
   // Event Handlers
   const toggleIngredient = (idx) => {
