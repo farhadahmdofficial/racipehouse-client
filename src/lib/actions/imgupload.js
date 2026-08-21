@@ -6,44 +6,51 @@
 
 
 
+// @/lib/actions/imgupload.js
 "use server";
 
 export async function imageupload(formData) {
   try {
-    const apiKey = process.env.NEXT_PUBLIC_IMGBB_API_KEY || process.env.IMGBB_API_KEY;
+    const apiKey = process.env.IMGBB_API_KEY || process.env.NEXT_PUBLIC_IMGBB_API_KEY;
 
+    // ১. API Key চেক
     if (!apiKey) {
-      console.error("ImgBB API key is missing in .env file");
+      console.error("DEBUG ERROR: ImgBB API Key is undefined in Server Action!");
       return { url: null };
     }
 
     const file = formData.get("image");
-    if (!file) return { url: null };
+    if (!file || file.size === 0) {
+      console.error("DEBUG ERROR: No image file received!");
+      return { url: null };
+    }
 
-    const body = new FormData();
-    body.append("image", file);
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Image = buffer.toString("base64");
+
+    const bodyParams = new URLSearchParams();
+    bodyParams.append("image", base64Image);
 
     const res = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
       method: "POST",
-      body: body,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: bodyParams.toString(),
     });
 
-    const text = await res.text();
+    const data = await res.json();
 
-    // রেসপন্স ফাঁকা হলে হ্যান্ডেল করবে
-    if (!text) {
-      throw new Error("Empty response received from ImgBB");
+    // ২. ImgBB Response চেক
+    if (!data.success) {
+      console.error("DEBUG ERROR ImgBB Response:", data);
+      return { url: null };
     }
 
-    const data = JSON.parse(text);
-
-    if (data?.data?.url) {
-      return { url: data.data.url };
-    }
-
-    return { url: null };
+    return { url: data.data.url };
   } catch (error) {
-    console.error("ImgBB Upload Error:", error);
+    console.error("DEBUG ERROR Exception:", error);
     return { url: null };
   }
 }
