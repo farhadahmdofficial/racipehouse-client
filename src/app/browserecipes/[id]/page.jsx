@@ -23,7 +23,7 @@ import {
 } from 'react-icons/fa';
 
 // Fixed Server URL: Fixed "sever" to "server" and "racipe" to "recipe"
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://recipehouse-sever.vercel.app';
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
 
 const RecipeDetailsPage = () => {
   const router = useRouter();
