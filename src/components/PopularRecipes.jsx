@@ -1,6 +1,5 @@
 
 
-
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -18,14 +17,39 @@ const PopularRecipes = () => {
   useEffect(() => {
     const fetchPopularRecipes = async () => {
       try {
+        setLoading(true);
+        // ১. প্রাইমারি ট্রাই: Popular Recipes API
         const res = await axios.get(`${API_BASE}/api/popular-recipes`);
-        if (res.data.success) {
-          setRecipes(res.data.recipes || []);
+        
+        if (res.data && res.data.success && res.data.recipes?.length > 0) {
+          setRecipes(res.data.recipes);
+        } else {
+          // যদি রেসপন্স খালি আসে, ফলব্যাক রান করবে
+          await fetchFallbackRecipes();
         }
       } catch (err) {
-        console.error('Error fetching popular recipes:', err);
+        console.error('Error fetching popular recipes, attempting fallback...', err);
+        // ২. সেকেন্ডারি ট্রাই (Fallback): যদি Endpoint 404/500 দেয়
+        await fetchFallbackRecipes();
       } finally {
         setLoading(false);
+      }
+    };
+
+    // ব্যাকআপ ফাংশন: নরমাল recipes API থেকে জনপ্রিয় ৩টি নিয়ে আসবে
+    const fetchFallbackRecipes = async () => {
+      try {
+        const fallbackRes = await axios.get(`${API_BASE}/recipes?limit=10`);
+        const allRecipes = fallbackRes.data?.recipes || fallbackRes.data || [];
+        
+        // likesCount অনুযায়ী সর্ট করে প্রথম ৩টি বেছে নেওয়া
+        const sorted = [...allRecipes]
+          .sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0))
+          .slice(0, 3);
+          
+        setRecipes(sorted);
+      } catch (fallbackErr) {
+        console.error('Fallback fetch also failed:', fallbackErr);
       }
     };
 
