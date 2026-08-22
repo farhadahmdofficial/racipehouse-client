@@ -161,14 +161,22 @@ export const addrecipe = async (data) => {
 
 
 
-//  getrecipt 
+//  get  recipt  apii
 
 
+
+
+
+
+
+
+
+// ok code 
 
 
 export const getRecipes = async (
   page = 1,
-  limit = 10,
+  limit = 9, // ডিফল্ট লিমিট ১০ থেকে বাড়িয়ে/কমিয়ে ৯ করা হলো
   search = "",
   category = "",
   cuisine = ""
@@ -202,23 +210,14 @@ export const getRecipes = async (
     return {
       success: true,
       recipes: result.recipes || [],
-      totalPages: result.pagination?.totalPages || 1,
-      totalCount: result.pagination?.totalCount || result.recipes?.length || 0,
+      totalPages: result.totalPages || result.pagination?.totalPages || 1,
+      totalCount: result.totalCount || result.pagination?.totalCount || result.recipes?.length || 0,
     };
   } catch (error) {
     console.error("Error in getRecipes action:", error);
     return { success: false, recipes: [], totalPages: 1, totalCount: 0 };
   }
 };
-
-
-
-
-
-// ok code 
-
-
-
 
 
 // export const getRecipes = async (page = 1, limit = 10) => {

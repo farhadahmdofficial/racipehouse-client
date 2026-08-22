@@ -18,8 +18,8 @@ export default async function MyPurchasedPage() {
           <div className="w-16 h-16 bg-orange-100 dark:bg-orange-950/50 text-orange-600 rounded-2xl flex items-center justify-center mx-auto text-2xl">
             🔒
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Authentication Required</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Please sign in to access your purchased recipes.</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">you are not any purchased reeipes </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Please purchased recipes.</p>
           <Link
             href="/login"
             className="inline-block w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-xl transition shadow-lg shadow-orange-600/20"
