@@ -47,9 +47,13 @@ const FavoritesPage = () => {
 
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:5000/api/recipes/favorites", {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/recipes/favorites`, {
         params: { userId, userEmail },
       });
+      // setLoading(true);
+      // const res = await axios.get("http://localhost:5000/api/recipes/favorites", {
+      //   params: { userId, userEmail },
+      // });
 
       const fetchedData =
         res.data?.favorites ||

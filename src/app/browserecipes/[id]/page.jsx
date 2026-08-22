@@ -196,25 +196,77 @@ useEffect(() => {
     }
   };
 
-  const handleFavorite = async () => {
-    if (!userId) {
-      alert("Please log in to bookmark recipes.");
-      return;
-    }
 
-    const nextFav = !isFavorite;
-    setIsFavorite(nextFav);
 
-    try {
-      await fetch(`${SERVER_URL}/users/favorites`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, recipeId, isFavorite: nextFav }),
-      });
-    } catch (err) {
-      console.error("Favorite update failed:", err);
+
+
+const handleFavorite = async () => {
+  if (!userId) {
+    alert("Please log in to bookmark recipes.");
+    return;
+  }
+
+  const nextFavState = !isFavorite;
+  
+  // Optimistic UI Update (বাটনের স্টেট সাথে সাথে চেঞ্জ হবে)
+  setIsFavorite(nextFavState);
+
+  try {
+    const res = await fetch(`${SERVER_URL}/users/favorites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        userId: String(userId), 
+        recipeId: String(recipeId), 
+        isFavorite: nextFavState 
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      // API রেসপন্স ফেইল করলে আগের স্টেটে ফেরত নিয়ে যাওয়া
+      setIsFavorite(!nextFavState);
+      alert(data.message || "Failed to update favorite status");
     }
-  };
+  } catch (err) {
+    console.error("Favorite update failed:", err);
+    // Error হলে আগের স্টেটে ফেরত নেওয়া
+    setIsFavorite(!nextFavState);
+  }
+};
+
+
+
+  // ok code 
+ 
+ 
+ 
+ 
+ 
+  // const handleFavorite = async () => {
+  //   if (!userId) {
+  //     alert("Please log in to bookmark recipes.");
+  //     return;
+  //   }
+
+  //   const nextFav = !isFavorite;
+  //   setIsFavorite(nextFav);
+
+  //   try {
+  //     await fetch(`${SERVER_URL}/users/favorites`, {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ userId, recipeId, isFavorite: nextFav }),
+  //     });
+  //   } catch (err) {
+  //     console.error("Favorite update failed:", err);
+  //   }
+  // };
+
+
+
+  
 
   const handleReportSubmit = async (e) => {
     e.preventDefault();
