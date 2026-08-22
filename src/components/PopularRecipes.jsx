@@ -4,7 +4,6 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import axios from 'axios';
 import { motion } from 'framer-motion';
 import { FaHeart, FaUser, FaSpinner } from 'react-icons/fa';
 
@@ -18,31 +17,38 @@ const PopularRecipes = () => {
     const fetchPopularRecipes = async () => {
       try {
         setLoading(true);
-        // ১. প্রাইমারি ট্রাই: Popular Recipes API
-        const res = await axios.get(`${API_BASE}/api/popular-recipes`);
+        const res = await fetch(`${API_BASE}/api/popular-recipes`, {
+          cache: 'no-store',
+        });
         
-        if (res.data && res.data.success && res.data.recipes?.length > 0) {
-          setRecipes(res.data.recipes);
+        if (!res.ok) throw new Error('Network response was not ok');
+        
+        const data = await res.json();
+        
+        if (data && data.success && Array.isArray(data.recipes) && data.recipes.length > 0) {
+          setRecipes(data.recipes);
         } else {
-          // যদি রেসপন্স খালি আসে, ফলব্যাক রান করবে
           await fetchFallbackRecipes();
         }
       } catch (err) {
-        console.error('Error fetching popular recipes, attempting fallback...', err);
-        // ২. সেকেন্ডারি ট্রাই (Fallback): যদি Endpoint 404/500 দেয়
+        console.error('Error fetching popular recipes:', err);
         await fetchFallbackRecipes();
       } finally {
         setLoading(false);
       }
     };
 
-    // ব্যাকআপ ফাংশন: নরমাল recipes API থেকে জনপ্রিয় ৩টি নিয়ে আসবে
     const fetchFallbackRecipes = async () => {
       try {
-        const fallbackRes = await axios.get(`${API_BASE}/recipes?limit=10`);
-        const allRecipes = fallbackRes.data?.recipes || fallbackRes.data || [];
+        const fallbackRes = await fetch(`${API_BASE}/recipes`, {
+          cache: 'no-store',
+        });
         
-        // likesCount অনুযায়ী সর্ট করে প্রথম ৩টি বেছে নেওয়া
+        if (!fallbackRes.ok) return;
+
+        const fallbackData = await fallbackRes.json();
+        const allRecipes = fallbackData?.recipes || (Array.isArray(fallbackData) ? fallbackData : []);
+        
         const sorted = [...allRecipes]
           .sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0))
           .slice(0, 3);
@@ -56,13 +62,10 @@ const PopularRecipes = () => {
     fetchPopularRecipes();
   }, []);
 
-
-  console.log(recipes,"recipes populaer");
   return (
     <section className="py-16 bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto mb-12">
           <h2 className="text-3xl font-extrabold text-gray-900 dark:text-white sm:text-4xl">
             Most Popular Recipes
@@ -72,7 +75,6 @@ const PopularRecipes = () => {
           </p>
         </div>
 
-        {/* Loading State */}
         {loading ? (
           <div className="flex justify-center py-12">
             <FaSpinner className="animate-spin text-4xl text-orange-600" />
@@ -82,7 +84,6 @@ const PopularRecipes = () => {
             No popular recipes found.
           </p>
         ) : (
-          /* Cards Grid */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {recipes.map((recipe, index) => (
               <motion.div
@@ -101,7 +102,6 @@ const PopularRecipes = () => {
                     className="w-full h-full object-cover"
                   />
                   
-                  {/* Likes Badge */}
                   <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-white/20">
                     <FaHeart className="text-red-500" />
                     <span>{recipe.likesCount || recipe.likeCount || 0}</span>
