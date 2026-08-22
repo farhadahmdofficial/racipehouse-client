@@ -57,7 +57,7 @@ const PopularRecipes = () => {
   }, []);
 
 
-  console.log(recipes);
+  console.log(recipes,"recipes populaer");
   return (
     <section className="py-16 bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
