@@ -8,7 +8,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { FaHeart, FaUser, FaSpinner } from 'react-icons/fa';
 
-const API_BASE = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+const API_BASE = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
 
 const PopularRecipes = () => {
   const [recipes, setRecipes] = useState([]);
@@ -56,6 +56,8 @@ const PopularRecipes = () => {
     fetchPopularRecipes();
   }, []);
 
+
+  console.log(recipes);
   return (
     <section className="py-16 bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
