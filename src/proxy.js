@@ -1,74 +1,74 @@
 
 
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+// import { NextResponse } from 'next/server';
+// import { cookies } from 'next/headers';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
+// const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
 
-export async function proxy(request) {
-  const cookieStore = await cookies();
-  const allCookies = cookieStore.getAll();
+// export async function proxy(request) {
+//   const cookieStore = await cookies();
+//   const allCookies = cookieStore.getAll();
 
-  if (!allCookies || allCookies.length === 0) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
+//   if (!allCookies || allCookies.length === 0) {
+//     return NextResponse.redirect(new URL('/login', request.url));
+//   }
 
-  const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+//   const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
 
-  try {
-    const sessionRes = await fetch(`${BACKEND_URL}/api/auth/get-session`, {
-      headers: {
-        cookie: cookieHeader,
-      },
-      cache: 'no-store',
-    });
+//   try {
+//     const sessionRes = await fetch(`${BACKEND_URL}/api/auth/get-session`, {
+//       headers: {
+//         cookie: cookieHeader,
+//       },
+//       cache: 'no-store',
+//     });
 
-    if (!sessionRes.ok) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+//     if (!sessionRes.ok) {
+//       return NextResponse.redirect(new URL('/login', request.url));
+//     }
 
-    const session = await sessionRes.json();
+//     const session = await sessionRes.json();
 
-    if (!session || !session?.user) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+//     if (!session || !session?.user) {
+//       return NextResponse.redirect(new URL('/login', request.url));
+//     }
 
-    const role = session.user?.role;
-    const userPlan = session.user?.plan || 'free';
+//     const role = session.user?.role;
+//     const userPlan = session.user?.plan || 'free';
 
-    if (role === 'admin') {
-      return NextResponse.next();
-    }
+//     if (role === 'admin') {
+//       return NextResponse.next();
+//     }
 
-    const isAddingRecipe = request.nextUrl.pathname === '/dashboard/add-recipe';
+//     const isAddingRecipe = request.nextUrl.pathname === '/dashboard/add-recipe';
 
-    if (userPlan === 'free' && isAddingRecipe) {
-      const countRes = await fetch(`${BACKEND_URL}/recipes/count?userId=${session.user.id}`, {
-        headers: {
-          cookie: cookieHeader,
-        },
-        cache: 'no-store',
-      });
+//     if (userPlan === 'free' && isAddingRecipe) {
+//       const countRes = await fetch(`${BACKEND_URL}/recipes/count?userId=${session.user.id}`, {
+//         headers: {
+//           cookie: cookieHeader,
+//         },
+//         cache: 'no-store',
+//       });
 
-      if (countRes.ok) {
-        const { recipeCount } = await countRes.json();
-        if (recipeCount >= 2) {
-          return NextResponse.redirect(new URL('/pricing', request.url));
-        }
-      }
-    }
+//       if (countRes.ok) {
+//         const { recipeCount } = await countRes.json();
+//         if (recipeCount >= 2) {
+//           return NextResponse.redirect(new URL('/pricing', request.url));
+//         }
+//       }
+//     }
 
-    return NextResponse.next();
+//     return NextResponse.next();
 
-  } catch (error) {
-    console.error("Proxy Error:", error);
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-}
+//   } catch (error) {
+//     console.error("Proxy Error:", error);
+//     return NextResponse.redirect(new URL('/login', request.url));
+//   }
+// }
 
-export const config = {
-  matcher: ['/dashboard/:path*'],
-};
+// export const config = {
+//   matcher: ['/dashboard/:path*'],
+// };
 
 
 
@@ -78,82 +78,82 @@ export const config = {
 
 // ok code 
 
-// import { NextResponse } from 'next/server';
-// import { auth } from './lib/auth';
-// import { MongoClient } from 'mongodb';
+import { NextResponse } from 'next/server';
+import { auth } from './lib/auth';
+import { MongoClient } from 'mongodb';
 
-// // Single DB Client Instance
-// const client = new MongoClient(process.env.MONGODB_URI);
+// Single DB Client Instance
+const client = new MongoClient(process.env.MONGODB_URI);
 
-// export async function proxy(request) {
-//   try {
-//     // ১. কুকি থেকে সেশন নেওয়া
-//     const session = await auth.api.getSession({
-//       headers: request.headers,
-//     });
+export async function proxy(request) {
+  try {
+    // ১. কুকি থেকে সেশন নেওয়া
+    const session = await auth.api.getSession({
+      headers: request.headers,
+    });
 
-//     // সেশন না থাকলে /login-এ রিডাইরেক্ট
-//     if (!session || !session?.user) {
-//       return NextResponse.redirect(new URL('/login', request.url));
-//     }
+    // সেশন না থাকলে /login-এ রিডাইরেক্ট
+    if (!session || !session?.user) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
 
-//     // ২. সরাসরি MongoDB থেকে Fresh Data রিড করা
-//     await client.connect();
-//     const db = client.db("recipehouse");
+    // ২. সরাসরি MongoDB থেকে Fresh Data রিড করা
+    await client.connect();
+    const db = client.db("recipehouse");
     
-//     const dbUser = await db.collection("user").findOne({
-//       $or: [
-//         { id: session.user.id },
-//         { email: session.user.email }
-//       ]
-//     });
+    const dbUser = await db.collection("user").findOne({
+      $or: [
+        { id: session.user.id },
+        { email: session.user.email }
+      ]
+    });
 
-//     // ডাটাবেজ থেকে Role এবং Plan তুলে আনা
-//     const role = dbUser?.role || session.user?.role;
-//     const userPlan = dbUser?.plan || session.user?.plan || 'free';
+    // ডাটাবেজ থেকে Role এবং Plan তুলে আনা
+    const role = dbUser?.role || session.user?.role;
+    const userPlan = dbUser?.plan || session.user?.plan || 'free';
 
-//     // 🎯 ৩. Admin হলে কোনো লিমিট থাকবে না (সরাসরি Access পাবে)
-//     if (role === 'admin') {
-//       return NextResponse.next();
-//     }
+    // 🎯 ৩. Admin হলে কোনো লিমিট থাকবে না (সরাসরি Access পাবে)
+    if (role === 'admin') {
+      return NextResponse.next();
+    }
 
-//     // 🎯 ৪. Free ইউজারের ক্ষেত্রে রেসিপি লিমিট চেক করা
-//     if (userPlan === 'free') {
-//       const userId = dbUser?.id || dbUser?._id?.toString() || session.user.id;
-//       const userEmail = dbUser?.email || session.user.email;
+    // 🎯 ৪. Free ইউজারের ক্ষেত্রে রেসিপি লিমিট চেক করা
+    if (userPlan === 'free') {
+      const userId = dbUser?.id || dbUser?._id?.toString() || session.user.id;
+      const userEmail = dbUser?.email || session.user.email;
 
-//       // ইউজার কয়টি রেসিপি তৈরি করেছে তা কাউন্ট করা
-//       const recipeCount = await db.collection("recipes").countDocuments({
-//         $or: [
-//           { userId: userId },
-//           { userEmail: userEmail },
-//           { "author.email": userEmail }
-//         ]
-//       });
+      // ইউজার কয়টি রেসিপি তৈরি করেছে তা কাউন্ট করা
+      const recipeCount = await db.collection("recipes").countDocuments({
+        $or: [
+          { userId: userId },
+          { userEmail: userEmail },
+          { "author.email": userEmail }
+        ]
+      });
 
-//       console.log(`Free User ${userEmail} total recipes:`, recipeCount);
+      console.log(`Free User ${userEmail} total recipes:`, recipeCount);
 
-//       // ২টির বেশি রেসিপি থাকলেই /pricing পেজে রিডাইরেক্ট
-//       if (recipeCount >= 2) {
-//         return NextResponse.redirect(new URL('/pricing', request.url));
-//       }
-//     }
+      // ২টির বেশি রেসিপি থাকলেই /pricing পেজে রিডাইরেক্ট
+      if (recipeCount >= 2) {
+        return NextResponse.redirect(new URL('/pricing', request.url));
+      }
+    }
 
-//     // 🎯 ৫. Pro ইউজার অথবা লিমিটের মধ্যে থাকা (<= 2) Free ইউজারের প্রবেশ
-//     return NextResponse.next();
+    // 🎯 ৫. Pro ইউজার অথবা লিমিটের মধ্যে থাকা (<= 2) Free ইউজারের প্রবেশ
+    return NextResponse.next();
 
-//   } catch (error) {
-//     console.error("Proxy Middleware Error:", error?.message || error);
-//     return NextResponse.redirect(new URL('/login', request.url));
-//   }
-// }
+  } catch (error) {
+    console.error("Proxy Middleware Error:", error?.message || error);
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+}
 
-// export const config = {
-//   matcher: [
-//     '/dashboard/add-recipe', // রেসিপি ক্রিয়েট পেজ
-//     '/dashboard/:path*', 
-//   ],
-// };
+export const config = {
+  matcher: [
+    '/dashboard/add-recipe', // রেসিপি ক্রিয়েট পেজ
+    '/dashboard/:path*', 
+  ],
+};
 
 
 
