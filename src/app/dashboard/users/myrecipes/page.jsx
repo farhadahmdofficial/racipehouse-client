@@ -17,25 +17,32 @@ export default async function MyRecipesPage() {
     headers: reqHeaders,
   });
 
-  if (!session || !session.user) {
+  console.log(session,"myrecip page session ");
+
+ if (!session || !session.user) {
     return (
       <div className="min-h-[70vh] bg-slate-100/70 dark:bg-slate-950 py-12 flex items-center justify-center px-4">
         <div className="max-w-2xl w-full mx-auto text-center py-16 px-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
           <div className="w-20 h-20 bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-orange-50 dark:ring-orange-950/20">
             <FaUtensils className="text-3xl" />
           </div>
+          
+          {/* 🎯 Updated Title for Unauthenticated User */}
           <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-3">
-            Share Your Culinary Magic
+            Access Denied
           </h2>
+
+          {/* 🎯 Updated Text */}
           <p className="text-slate-600 dark:text-slate-400 text-base max-w-md mx-auto mb-8 leading-relaxed">
-            You haven't added any recipes yet. Start creating your own delicious recipes and share them with the world!
+            Please log in to view and manage your culinary creations and share your recipes with the world!
           </p>
+
+          {/* 🎯 Redirects to Login instead of Add Recipe */}
           <Link 
-            href="/dashboard/users/addrecipe" 
+            href="/login" 
             className="inline-flex items-center justify-center gap-2.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white font-semibold px-7 py-3.5 rounded-xl shadow-lg shadow-orange-600/30 dark:shadow-orange-900/20 transition-all duration-200"
           >
-            <FaPlus className="text-sm" />
-            <span>Add New Recipe</span>
+            <span>Please Login</span>
           </Link>
         </div>
       </div>
