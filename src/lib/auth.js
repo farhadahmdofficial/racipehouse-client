@@ -1,19 +1,16 @@
 
 
+
 import { betterAuth } from "better-auth";
 import { MongoClient } from "mongodb";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { jwt } from "better-auth/plugins";
 
-// MongoClient Instance
 const client = new MongoClient(process.env.MONGODB_URI);
-
-// Database Object (RecipeHouse Database)
 const db = client.db("recipehouse");
 
 export const auth = betterAuth({
-  // 🎯 appName ফিক্স করায় কুকির নাম এখন racipehouse ডোমেইনের সাথে মিলবে
-  appName: "racipehouse",
+  appName: "recipehouse",
 
   database: mongodbAdapter(db, {
     client: client,
@@ -30,55 +27,20 @@ export const auth = betterAuth({
     },
   },
 
-  // 🎯 Cross-Domain Origins Allowed List
   trustedOrigins: [
-    "https://racipehouse-client-theta.vercel.app",
+    "https://recipehouse-client-theta.vercel.app",
     "http://localhost:3000",
   ],
 
   user: {
     additionalFields: {
-      role: {
-        type: "string",
-        required: false,
-        defaultValue: "user",
-        input: true,
-      },
-      plan: {
-        type: "string",
-        required: false,
-        defaultValue: "free",
-        input: true,
-      },
-      image: {
-        type: "string",
-        required: false,
-        input: true,
-      },
-      isPremium: {
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        input: true,
-      },
-      totalRecipes: {
-        type: "number",
-        required: false,
-        defaultValue: 0,
-        input: false,
-      },
-      totalFavorites: {
-        type: "number",
-        required: false,
-        defaultValue: 0,
-        input: false,
-      },
-      totalLikesReceived: {
-        type: "number",
-        required: false,
-        defaultValue: 0,
-        input: false,
-      },
+      role: { type: "string", required: false, defaultValue: "user", input: true },
+      plan: { type: "string", required: false, defaultValue: "free", input: true },
+      image: { type: "string", required: false, input: true },
+      isPremium: { type: "boolean", required: false, defaultValue: false, input: true },
+      totalRecipes: { type: "number", required: false, defaultValue: 0, input: false },
+      totalFavorites: { type: "number", required: false, defaultValue: 0, input: false },
+      totalLikesReceived: { type: "number", required: false, defaultValue: 0, input: false },
     },
   },
 
@@ -86,31 +48,144 @@ export const auth = betterAuth({
     cookieCache: {
       enabled: true,
       strategy: "jwt",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
     },
   },
 
-  // 🎯 Cross-Origin Secure Cookie Configuration
+  baseURL: process.env.BETTER_AUTH_URL || "https://recipehouse-client-theta.vercel.app",
+
+  // 🎯 Cookie Fix: useSecureCookies এবং sameSite 'lax' দিন
   advanced: {
-  useSecureCookies: true,
-  defaultCookieAttributes: {
-    sameSite: "lax", // 💡 'none' এর বদলে 'lax' দিন
-    secure: true,
+    useSecureCookies: false, // 💡 Server Component-এ __Secure- কুকি রিড করার সমস্যা এড়াতে এটি false দিন
+    defaultCookieAttributes: {
+      sameSite: "lax",
+      secure: true,
+    },
   },
-},
-  // advanced: {
-  //   useSecureCookies: true,
-  //   defaultCookieAttributes: {
-  //     sameSite: "none",
-  //     secure: true,
-  //   },
-  // },
 
   plugins: [jwt()],
 
   secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL || "https://racipehouse-sever.vercel.app",
 });
+
+
+
+
+
+
+// ok code 
+
+// import { betterAuth } from "better-auth";
+// import { MongoClient } from "mongodb";
+// import { mongodbAdapter } from "better-auth/adapters/mongodb";
+// import { jwt } from "better-auth/plugins";
+
+// // MongoClient Instance
+// const client = new MongoClient(process.env.MONGODB_URI);
+
+// // Database Object (RecipeHouse Database)
+// const db = client.db("recipehouse");
+
+// export const auth = betterAuth({
+//   // 🎯 appName ফিক্স করায় কুকির নাম এখন racipehouse ডোমেইনের সাথে মিলবে
+//   appName: "racipehouse",
+
+//   database: mongodbAdapter(db, {
+//     client: client,
+//   }),
+
+//   emailAndPassword: {
+//     enabled: true,
+//   },
+
+//   socialProviders: {
+//     google: {
+//       clientId: process.env.GOOGLE_CLIENT_ID,
+//       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+//     },
+//   },
+
+//   // 🎯 Cross-Domain Origins Allowed List
+//   trustedOrigins: [
+//     "https://racipehouse-client-theta.vercel.app",
+//     "http://localhost:3000",
+//   ],
+
+//   user: {
+//     additionalFields: {
+//       role: {
+//         type: "string",
+//         required: false,
+//         defaultValue: "user",
+//         input: true,
+//       },
+//       plan: {
+//         type: "string",
+//         required: false,
+//         defaultValue: "free",
+//         input: true,
+//       },
+//       image: {
+//         type: "string",
+//         required: false,
+//         input: true,
+//       },
+//       isPremium: {
+//         type: "boolean",
+//         required: false,
+//         defaultValue: false,
+//         input: true,
+//       },
+//       totalRecipes: {
+//         type: "number",
+//         required: false,
+//         defaultValue: 0,
+//         input: false,
+//       },
+//       totalFavorites: {
+//         type: "number",
+//         required: false,
+//         defaultValue: 0,
+//         input: false,
+//       },
+//       totalLikesReceived: {
+//         type: "number",
+//         required: false,
+//         defaultValue: 0,
+//         input: false,
+//       },
+//     },
+//   },
+
+//   session: {
+//     cookieCache: {
+//       enabled: true,
+//       strategy: "jwt",
+//       maxAge: 60 * 60 * 24 * 7, // 7 days
+//     },
+//   },
+
+//   // 🎯 Cross-Origin Secure Cookie Configuration
+//   advanced: {
+//   useSecureCookies: true,
+//   defaultCookieAttributes: {
+//     sameSite: "lax", // 💡 'none' এর বদলে 'lax' দিন
+//     secure: true,
+//   },
+// },
+//   // advanced: {
+//   //   useSecureCookies: true,
+//   //   defaultCookieAttributes: {
+//   //     sameSite: "none",
+//   //     secure: true,
+//   //   },
+//   // },
+
+//   plugins: [jwt()],
+
+//   secret: process.env.BETTER_AUTH_SECRET,
+//   baseURL: process.env.BETTER_AUTH_URL || "https://racipehouse-sever.vercel.app",
+// });
 
 
 
