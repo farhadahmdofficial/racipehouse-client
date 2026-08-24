@@ -25,7 +25,6 @@ export const auth = betterAuth({
     },
   },
 
-  // 🎯 সঠিক URL বসানো হয়েছে (racipehouse)
   trustedOrigins: [
     "https://racipehouse-client-theta.vercel.app",
     "http://localhost:3000",
@@ -42,10 +41,12 @@ export const auth = betterAuth({
   },
 
   advanced: {
-    useSecureCookies: true,
+    // 💥 FIX: Production-এ অটোমেটিক true হবে, Localhost-এ false
+    useSecureCookies: process.env.NODE_ENV === "production",
     defaultCookieAttributes: {
-      sameSite: "none",
-      secure: true,
+      // 💥 FIX: SameSite lax রাখলে Vercel Server Component সহজেই কুকি রিড করতে পারে
+      sameSite: process.env.NODE_ENV === "production" ? "lax" : "lax",
+      secure: process.env.NODE_ENV === "production",
     },
   },
 
