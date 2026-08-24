@@ -76,84 +76,150 @@
 
 
 
-// ok code 
+
+
+
+
+
+
+
 
 import { NextResponse } from 'next/server';
-import { auth } from './lib/auth';
-import { MongoClient } from 'mongodb';
 
-// Single DB Client Instance
-const client = new MongoClient(process.env.MONGODB_URI);
+export async function middleware(request) {
+  // ১. ব্রাউজার থেকে কুকি চেক
+  const cookies = request.cookies;
+  const hasSessionCookie = cookies.getAll().some(c => c.name.includes('session'));
 
-export async function proxy(request) {
+  if (!hasSessionCookie) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
   try {
-    // ১. কুকি থেকে সেশন নেওয়া
-    const session = await auth.api.getSession({
-      headers: request.headers,
+    // ২. মিডলওয়্যার থেকে ব্যাকএন্ড API-তে সেশন ও লিমিট চেক রিকোয়েস্ট
+    const checkRes = await fetch(new URL('/api/check-user-limit', request.url), {
+      headers: {
+        cookie: request.headers.get('cookie') || '',
+      },
+      cache: 'no-store',
     });
 
-    // সেশন না থাকলে /login-এ রিডাইরেক্ট
-    if (!session || !session?.user) {
+    if (!checkRes.ok) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    // ২. সরাসরি MongoDB থেকে Fresh Data রিড করা
-    await client.connect();
-    const db = client.db("recipehouse");
-    
-    const dbUser = await db.collection("user").findOne({
-      $or: [
-        { id: session.user.id },
-        { email: session.user.email }
-      ]
-    });
+    const { role, userPlan, recipeCount } = await checkRes.json();
 
-    // ডাটাবেজ থেকে Role এবং Plan তুলে আনা
-    const role = dbUser?.role || session.user?.role;
-    const userPlan = dbUser?.plan || session.user?.plan || 'free';
-
-    // 🎯 ৩. Admin হলে কোনো লিমিট থাকবে না (সরাসরি Access পাবে)
+    // Admin হলে ফুল এক্সেস
     if (role === 'admin') {
       return NextResponse.next();
     }
 
-    // 🎯 ৪. Free ইউজারের ক্ষেত্রে রেসিপি লিমিট চেক করা
-    if (userPlan === 'free') {
-      const userId = dbUser?.id || dbUser?._id?.toString() || session.user.id;
-      const userEmail = dbUser?.email || session.user.email;
+    // Free ইউজার ২টির বেশি রেসিপি তৈরি করতে চাইলে /pricing-এ পাঠাবে
+    const isAddingRecipe = request.nextUrl.pathname.includes('addrecipe') || 
+                           request.nextUrl.pathname.includes('add-recipe');
 
-      // ইউজার কয়টি রেসিপি তৈরি করেছে তা কাউন্ট করা
-      const recipeCount = await db.collection("recipes").countDocuments({
-        $or: [
-          { userId: userId },
-          { userEmail: userEmail },
-          { "author.email": userEmail }
-        ]
-      });
-
-      console.log(`Free User ${userEmail} total recipes:`, recipeCount);
-
-      // ২টির বেশি রেসিপি থাকলেই /pricing পেজে রিডাইরেক্ট
-      if (recipeCount >= 2) {
-        return NextResponse.redirect(new URL('/pricing', request.url));
-      }
+    if (userPlan === 'free' && isAddingRecipe && recipeCount >= 2) {
+      return NextResponse.redirect(new URL('/pricing', request.url));
     }
 
-    // 🎯 ৫. Pro ইউজার অথবা লিমিটের মধ্যে থাকা (<= 2) Free ইউজারের প্রবেশ
     return NextResponse.next();
 
   } catch (error) {
-    console.error("Proxy Middleware Error:", error?.message || error);
+    console.error("Middleware Error:", error);
     return NextResponse.redirect(new URL('/login', request.url));
   }
 }
 
 export const config = {
   matcher: [
-    '/dashboard/add-recipe', // রেসিপি ক্রিয়েট পেজ
+    '/dashboard/add-recipe',
+    '/dashboard/users/addrecipe',
     '/dashboard/:path*', 
   ],
 };
+
+
+
+
+// ok code 
+
+// import { NextResponse } from 'next/server';
+// import { auth } from './lib/auth';
+// import { MongoClient } from 'mongodb';
+
+// // Single DB Client Instance
+// const client = new MongoClient(process.env.MONGODB_URI);
+
+// export async function proxy(request) {
+//   try {
+//     // ১. কুকি থেকে সেশন নেওয়া
+//     const session = await auth.api.getSession({
+//       headers: request.headers,
+//     });
+
+//     // সেশন না থাকলে /login-এ রিডাইরেক্ট
+//     if (!session || !session?.user) {
+//       return NextResponse.redirect(new URL('/login', request.url));
+//     }
+
+//     // ২. সরাসরি MongoDB থেকে Fresh Data রিড করা
+//     await client.connect();
+//     const db = client.db("recipehouse");
+    
+//     const dbUser = await db.collection("user").findOne({
+//       $or: [
+//         { id: session.user.id },
+//         { email: session.user.email }
+//       ]
+//     });
+
+//     // ডাটাবেজ থেকে Role এবং Plan তুলে আনা
+//     const role = dbUser?.role || session.user?.role;
+//     const userPlan = dbUser?.plan || session.user?.plan || 'free';
+
+//     // 🎯 ৩. Admin হলে কোনো লিমিট থাকবে না (সরাসরি Access পাবে)
+//     if (role === 'admin') {
+//       return NextResponse.next();
+//     }
+
+//     // 🎯 ৪. Free ইউজারের ক্ষেত্রে রেসিপি লিমিট চেক করা
+//     if (userPlan === 'free') {
+//       const userId = dbUser?.id || dbUser?._id?.toString() || session.user.id;
+//       const userEmail = dbUser?.email || session.user.email;
+
+//       // ইউজার কয়টি রেসিপি তৈরি করেছে তা কাউন্ট করা
+//       const recipeCount = await db.collection("recipes").countDocuments({
+//         $or: [
+//           { userId: userId },
+//           { userEmail: userEmail },
+//           { "author.email": userEmail }
+//         ]
+//       });
+
+//       console.log(`Free User ${userEmail} total recipes:`, recipeCount);
+
+//       // ২টির বেশি রেসিপি থাকলেই /pricing পেজে রিডাইরেক্ট
+//       if (recipeCount >= 2) {
+//         return NextResponse.redirect(new URL('/pricing', request.url));
+//       }
+//     }
+
+//     // 🎯 ৫. Pro ইউজার অথবা লিমিটের মধ্যে থাকা (<= 2) Free ইউজারের প্রবেশ
+//     return NextResponse.next();
+
+//   } catch (error) {
+//     console.error("Proxy Middleware Error:", error?.message || error);
+//     return NextResponse.redirect(new URL('/login', request.url));
+//   }
+// }
+
+// export const config = {
+//   matcher: [
+//     '/dashboard/add-recipe', // রেসিপি ক্রিয়েট পেজ
+//     '/dashboard/:path*', 
+//   ],
+// };
 
 
 
