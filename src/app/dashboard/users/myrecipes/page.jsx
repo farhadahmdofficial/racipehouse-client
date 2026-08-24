@@ -18,6 +18,9 @@ export default async function MyRecipesPage() {
     headers: reqHeaders,
   });
 
+
+  console.log(session,"this mysession ");
+
   if (!session || !session.user) {
     return (
       <div className="min-h-[70vh] bg-slate-100/70 dark:bg-slate-950 py-12 flex items-center justify-center px-4">
@@ -78,6 +81,8 @@ export default async function MyRecipesPage() {
       ...recipe,
       _id: recipe._id.toString()
     }));
+
+    console.log(formattedRecipes,"the  myrecipe ");
 
     return (
       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
