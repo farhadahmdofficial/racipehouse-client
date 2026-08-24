@@ -8,19 +8,24 @@ import DeleteButton from '@/components/DeleteButton';
 import clientPromise from '@/lib/mongodb';
 import { auth } from '@/lib/auth';
 
+// 🎯 লাইভ সাইটে ক্যাশিং বন্ধ করার জন্য এগুলো জরুরি
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function MyRecipesPage() {
   const reqHeaders = await headers();
   
-  // 🎯 Vercel SSR Session Fix: asResponse অপশন দিয়ে সেশন এক্সট্র্যাক্ট
-  const session = await auth.api.getSession({
-    headers: reqHeaders,
-  });
+  // 🎯 Vercel-এ Cookie Header পাস করার জন্য explicit headers অবজেক্ট তৈরি
+  let session = null;
+  try {
+    session = await auth.api.getSession({
+      headers: reqHeaders,
+    });
+  } catch (err) {
+    console.error("Session fetch failed on Live site:", err);
+  }
 
-
-  console.log(session,"this mysession ");
-
+  // সেশন না পেলে Access Denied UI
   if (!session || !session.user) {
     return (
       <div className="min-h-[70vh] bg-slate-100/70 dark:bg-slate-950 py-12 flex items-center justify-center px-4">
@@ -48,7 +53,7 @@ export default async function MyRecipesPage() {
     );
   }
 
-  const userId = session.user.id;
+  const userId = session.user.id || session.user._id;
   const userEmail = session.user.email;
 
   try {
@@ -65,9 +70,11 @@ export default async function MyRecipesPage() {
     }
 
     if (userEmail) {
+      queryConditions.push({ userId: String(userEmail) });
       queryConditions.push({ userEmail: String(userEmail) });
       queryConditions.push({ email: String(userEmail) });
       queryConditions.push({ authorEmail: String(userEmail) });
+      queryConditions.push({ "author.email": String(userEmail) });
     }
 
     const query = queryConditions.length > 0 ? { $or: queryConditions } : { _id: null };
@@ -81,8 +88,6 @@ export default async function MyRecipesPage() {
       ...recipe,
       _id: recipe._id.toString()
     }));
-
-    console.log(formattedRecipes,"the  myrecipe ");
 
     return (
       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
@@ -186,7 +191,6 @@ export default async function MyRecipesPage() {
     return <div className="text-center py-20 text-red-500">Failed to load recipes.</div>;
   }
 }
-
 
 
 

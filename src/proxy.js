@@ -1,143 +1,90 @@
 
 
-// import { NextResponse } from 'next/server';
-// import { cookies } from 'next/headers';
-
-// const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
-
-// export async function proxy(request) {
-//   const cookieStore = await cookies();
-//   const allCookies = cookieStore.getAll();
-
-//   if (!allCookies || allCookies.length === 0) {
-//     return NextResponse.redirect(new URL('/login', request.url));
-//   }
-
-//   const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
-
-//   try {
-//     const sessionRes = await fetch(`${BACKEND_URL}/api/auth/get-session`, {
-//       headers: {
-//         cookie: cookieHeader,
-//       },
-//       cache: 'no-store',
-//     });
-
-//     if (!sessionRes.ok) {
-//       return NextResponse.redirect(new URL('/login', request.url));
-//     }
-
-//     const session = await sessionRes.json();
-
-//     if (!session || !session?.user) {
-//       return NextResponse.redirect(new URL('/login', request.url));
-//     }
-
-//     const role = session.user?.role;
-//     const userPlan = session.user?.plan || 'free';
-
-//     if (role === 'admin') {
-//       return NextResponse.next();
-//     }
-
-//     const isAddingRecipe = request.nextUrl.pathname === '/dashboard/add-recipe';
-
-//     if (userPlan === 'free' && isAddingRecipe) {
-//       const countRes = await fetch(`${BACKEND_URL}/recipes/count?userId=${session.user.id}`, {
-//         headers: {
-//           cookie: cookieHeader,
-//         },
-//         cache: 'no-store',
-//       });
-
-//       if (countRes.ok) {
-//         const { recipeCount } = await countRes.json();
-//         if (recipeCount >= 2) {
-//           return NextResponse.redirect(new URL('/pricing', request.url));
-//         }
-//       }
-//     }
-
-//     return NextResponse.next();
-
-//   } catch (error) {
-//     console.error("Proxy Error:", error);
-//     return NextResponse.redirect(new URL('/login', request.url));
-//   }
-// }
-
-// export const config = {
-//   matcher: ['/dashboard/:path*'],
-// };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
-export async function middleware(request) {
-  // ১. ব্রাউজার থেকে কুকি চেক
-  const cookies = request.cookies;
-  const hasSessionCookie = cookies.getAll().some(c => c.name.includes('session'));
+const BACKEND_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'https://racipehouse-sever.vercel.app';
 
-  if (!hasSessionCookie) {
+export async function proxy(request) {
+  const cookieStore = await cookies();
+  const allCookies = cookieStore.getAll();
+
+  if (!allCookies || allCookies.length === 0) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+
   try {
-    // ২. মিডলওয়্যার থেকে ব্যাকএন্ড API-তে সেশন ও লিমিট চেক রিকোয়েস্ট
-    const checkRes = await fetch(new URL('/api/check-user-limit', request.url), {
+    const sessionRes = await fetch(`${BACKEND_URL}/api/auth/get-session`, {
       headers: {
-        cookie: request.headers.get('cookie') || '',
+        cookie: cookieHeader,
       },
       cache: 'no-store',
     });
 
-    if (!checkRes.ok) {
+    if (!sessionRes.ok) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
 
-    const { role, userPlan, recipeCount } = await checkRes.json();
+    const session = await sessionRes.json();
 
-    // Admin হলে ফুল এক্সেস
+    if (!session || !session?.user) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
+    const role = session.user?.role;
+    const userPlan = session.user?.plan || 'free';
+
     if (role === 'admin') {
       return NextResponse.next();
     }
 
-    // Free ইউজার ২টির বেশি রেসিপি তৈরি করতে চাইলে /pricing-এ পাঠাবে
-    const isAddingRecipe = request.nextUrl.pathname.includes('addrecipe') || 
-                           request.nextUrl.pathname.includes('add-recipe');
+    const isAddingRecipe = request.nextUrl.pathname === '/dashboard/add-recipe';
 
-    if (userPlan === 'free' && isAddingRecipe && recipeCount >= 2) {
-      return NextResponse.redirect(new URL('/pricing', request.url));
+    if (userPlan === 'free' && isAddingRecipe) {
+      const countRes = await fetch(`${BACKEND_URL}/recipes/count?userId=${session.user.id}`, {
+        headers: {
+          cookie: cookieHeader,
+        },
+        cache: 'no-store',
+      });
+
+      if (countRes.ok) {
+        const { recipeCount } = await countRes.json();
+        if (recipeCount >= 2) {
+          return NextResponse.redirect(new URL('/pricing', request.url));
+        }
+      }
     }
 
     return NextResponse.next();
 
   } catch (error) {
-    console.error("Middleware Error:", error);
+    console.error("Proxy Error:", error);
     return NextResponse.redirect(new URL('/login', request.url));
   }
 }
 
 export const config = {
-  matcher: [
-    '/dashboard/add-recipe',
-    '/dashboard/users/addrecipe',
-    '/dashboard/:path*', 
-  ],
+  matcher: ['/dashboard/:path*'],
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
