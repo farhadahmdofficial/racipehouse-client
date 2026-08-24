@@ -10,7 +10,6 @@ const client = new MongoClient(process.env.MONGODB_URI);
 const db = client.db("recipehouse");
 
 export const auth = betterAuth({
-  // 🎯 appName উঠিয়ে দিন অথবা সাধারণ রাখুন, যাতে কুকির নামের সাথে __Secure- ঝামেলা না করে
   database: mongodbAdapter(db, {
     client: client,
   }),
@@ -26,22 +25,14 @@ export const auth = betterAuth({
     },
   },
 
+  // 🎯 Vercel-এর Domain Origin 
   trustedOrigins: [
-    "https://recipehouse-client-theta.vercel.app",
+    "https://racipehouse-client-theta.vercel.app",
     "http://localhost:3000",
   ],
 
-  user: {
-    additionalFields: {
-      role: { type: "string", required: false, defaultValue: "user", input: true },
-      plan: { type: "string", required: false, defaultValue: "free", input: true },
-      image: { type: "string", required: false, input: true },
-      isPremium: { type: "boolean", required: false, defaultValue: false, input: true },
-      totalRecipes: { type: "number", required: false, defaultValue: 0, input: false },
-      totalFavorites: { type: "number", required: false, defaultValue: 0, input: false },
-      totalLikesReceived: { type: "number", required: false, defaultValue: 0, input: false },
-    },
-  },
+  // 🎯 Dynamic BaseURL Detection
+  baseURL: process.env.BETTER_AUTH_URL || "https://racipehouse-client-theta.vercel.app",
 
   session: {
     cookieCache: {
@@ -51,19 +42,18 @@ export const auth = betterAuth({
     },
   },
 
-  baseURL: process.env.BETTER_AUTH_URL || "https://recipehouse-client-theta.vercel.app",
-
-  // 🎯 Vercel-এ Cookie Session পড়তে এই কনফিগারেশন অত্যন্ত জরুরি
+  // 🎯 CRITICAL FIX: Cookies Fix for Server Components on Vercel
   advanced: {
-    useSecureCookies: false, // Server-side session parsing ফিক্স করতে এটি false রাখুন
+    useSecureCookies: true,
+    cookiePrefix: "better-auth",
     defaultCookieAttributes: {
-      sameSite: "lax",
+      sameSite: "none", // 💡 SSR & Cross-Domain রিকোয়েস্টে কুকি পাঠানোর জন্য 'none' দিন
       secure: true,
+      partitioned: true,
     },
   },
 
   plugins: [jwt()],
-
   secret: process.env.BETTER_AUTH_SECRET,
 });
 

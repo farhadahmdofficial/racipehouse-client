@@ -11,8 +11,11 @@ import { auth } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export default async function MyRecipesPage() {
-  const headersList = await headers();
-  const session = await auth.api.getSession({ headers: headersList });
+  // 🎯 ১. Vercel Serverless Component-এ Headers সঠিকভাবে পাস করা
+  const reqHeaders = await headers();
+  const session = await auth.api.getSession({
+    headers: reqHeaders,
+  });
 
   if (!session || !session.user) {
     return (
@@ -46,7 +49,7 @@ export default async function MyRecipesPage() {
     const client = await clientPromise;
     const db = client.db('recipehouse');
 
-    // ১. সুনির্দিষ্ট ফিল্টার তৈরি: আপনার ডাটাবেজে ইউজার কিভাবে সেভ হয় (userId নাকি userEmail) সে অনুযায়ী ম্যাচ করবে
+    // 🎯 ২. ডাইনামিক ফিল্টার (userId, ObjectId এবং Email চেক)
     const queryConditions = [];
 
     if (userId) {
@@ -59,9 +62,9 @@ export default async function MyRecipesPage() {
     if (userEmail) {
       queryConditions.push({ userEmail: String(userEmail) });
       queryConditions.push({ email: String(userEmail) });
+      queryConditions.push({ authorEmail: String(userEmail) });
     }
 
-    // যদি ইউজার সেশন থাকে কেবল তখনই $or কাজ করবে
     const query = queryConditions.length > 0 ? { $or: queryConditions } : { _id: null };
 
     const recipes = await db.collection('recipes')
@@ -177,8 +180,7 @@ export default async function MyRecipesPage() {
     console.error("Error fetching recipes:", error);
     return <div className="text-center py-20 text-red-500">Failed to load recipes.</div>;
   }
-}
-
+} 
 
 
 
