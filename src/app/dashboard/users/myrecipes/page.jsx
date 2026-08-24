@@ -11,33 +11,29 @@ import { auth } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export default async function MyRecipesPage() {
-  // 🎯 ১. Vercel Serverless Component-এ Headers সঠিকভাবে পাস করা
   const reqHeaders = await headers();
+  
+  // 🎯 Vercel SSR Session Fix: asResponse অপশন দিয়ে সেশন এক্সট্র্যাক্ট
   const session = await auth.api.getSession({
     headers: reqHeaders,
   });
 
-  console.log(session,"myrecip page session ");
-
- if (!session || !session.user) {
+  if (!session || !session.user) {
     return (
       <div className="min-h-[70vh] bg-slate-100/70 dark:bg-slate-950 py-12 flex items-center justify-center px-4">
         <div className="max-w-2xl w-full mx-auto text-center py-16 px-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
           <div className="w-20 h-20 bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-orange-50 dark:ring-orange-950/20">
             <FaUtensils className="text-3xl" />
           </div>
-          
-          {/* 🎯 Updated Title for Unauthenticated User */}
+
           <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-3">
             Access Denied
           </h2>
 
-          {/* 🎯 Updated Text */}
           <p className="text-slate-600 dark:text-slate-400 text-base max-w-md mx-auto mb-8 leading-relaxed">
             Please log in to view and manage your culinary creations and share your recipes with the world!
           </p>
 
-          {/* 🎯 Redirects to Login instead of Add Recipe */}
           <Link 
             href="/login" 
             className="inline-flex items-center justify-center gap-2.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white font-semibold px-7 py-3.5 rounded-xl shadow-lg shadow-orange-600/30 dark:shadow-orange-900/20 transition-all duration-200"
@@ -56,7 +52,6 @@ export default async function MyRecipesPage() {
     const client = await clientPromise;
     const db = client.db('recipehouse');
 
-    // 🎯 ২. ডাইনামিক ফিল্টার (userId, ObjectId এবং Email চেক)
     const queryConditions = [];
 
     if (userId) {
@@ -88,7 +83,6 @@ export default async function MyRecipesPage() {
       <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
         <Toaster position="top-right" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
             <div>
               <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
@@ -106,7 +100,6 @@ export default async function MyRecipesPage() {
             </Link>
           </div>
 
-          {/* Recipe List */}
           {formattedRecipes.length === 0 ? (
             <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
               <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
@@ -187,7 +180,7 @@ export default async function MyRecipesPage() {
     console.error("Error fetching recipes:", error);
     return <div className="text-center py-20 text-red-500">Failed to load recipes.</div>;
   }
-} 
+}
 
 
 

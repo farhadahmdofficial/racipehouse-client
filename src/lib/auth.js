@@ -25,13 +25,12 @@ export const auth = betterAuth({
     },
   },
 
-  // 🎯 Vercel-এর Domain Origin 
+  // 🎯 সঠিক URL বসানো হয়েছে (racipehouse)
   trustedOrigins: [
     "https://racipehouse-client-theta.vercel.app",
     "http://localhost:3000",
   ],
 
-  // 🎯 Dynamic BaseURL Detection
   baseURL: process.env.BETTER_AUTH_URL || "https://racipehouse-client-theta.vercel.app",
 
   session: {
@@ -42,14 +41,11 @@ export const auth = betterAuth({
     },
   },
 
-  // 🎯 CRITICAL FIX: Cookies Fix for Server Components on Vercel
   advanced: {
     useSecureCookies: true,
-    cookiePrefix: "better-auth",
     defaultCookieAttributes: {
-      sameSite: "none", // 💡 SSR & Cross-Domain রিকোয়েস্টে কুকি পাঠানোর জন্য 'none' দিন
+      sameSite: "none",
       secure: true,
-      partitioned: true,
     },
   },
 
