@@ -21,6 +21,7 @@ import axios from 'axios';
 export default function MyRecipesPage() {
   const { data: session, isPending } = authClient.useSession();
   const user = session?.user;
+  console.log(user,"add new user ");
 
   const [recipes, setRecipes] = useState([]);
   const [loadingRecipes, setLoadingRecipes] = useState(true);
