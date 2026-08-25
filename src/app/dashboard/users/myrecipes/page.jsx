@@ -875,6 +875,7 @@ export const dynamic = 'force-dynamic';
 export default async function MyRecipesPage() {
   const headersList = await headers();
   const session = await auth.api.getSession({ headers: headersList });
+  console.log(session,'byfffff');
 
   if (!session) {
     return (
