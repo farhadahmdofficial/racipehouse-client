@@ -2,276 +2,10 @@
 
 // src/app/dashboard/users/myrecipes/page.jsx
 
-import { ObjectId } from 'mongodb';
-import Link from 'next/link';
-import { FaPlus, FaUtensils } from 'react-icons/fa';
-import { headers, cookies } from 'next/headers';
-import { Toaster } from 'react-hot-toast';
-import DeleteButton from '@/components/DeleteButton';
-import clientPromise from '@/lib/mongodb';
-import { auth } from '@/lib/auth';
-
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export default async function MyRecipesPage() {
-  // 1. Session পাওয়ার চেষ্টা (Vercel এর জন্য উন্নত)
-  let session = null;
-  
-  try {
-    // headers এবং cookies পাওয়া
-    const reqHeaders = await headers();
-    const cookieStore = await cookies();
-    
-    // Cookie স্ট্রিং তৈরি
-    const allCookies = cookieStore.getAll();
-    const cookieString = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
-    
-    // Headers তৈরি
-    const customHeaders = new Headers(reqHeaders);
-    if (cookieString) {
-      customHeaders.set('cookie', cookieString);
-    }
-    
-    // Session পাওয়া
-    session = await auth.api.getSession({
-      headers: customHeaders,
-    });
-    
-    console.log('Session found:', !!session);
-    if (session) {
-      console.log('User ID:', session.user?.id);
-    }
-  } catch (error) {
-    console.error('Session extraction failed:', error);
-  }
-
-  // 2. Session না থাকলে
-  if (!session || !session?.user) {
-    return (
-      <div className="min-h-[70vh] bg-slate-100/70 dark:bg-slate-950 py-12 flex items-center justify-center px-4">
-        <div className="max-w-2xl w-full mx-auto text-center py-16 px-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
-          <div className="w-20 h-20 bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-orange-50 dark:ring-orange-950/20">
-            <FaUtensils className="text-3xl" />
-          </div>
-
-          <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-3">
-            Access Denied
-          </h2>
-
-          <p className="text-slate-600 dark:text-slate-400 text-base max-w-md mx-auto mb-8 leading-relaxed">
-            Please log in to view and manage your culinary creations and share your recipes with the world!
-          </p>
-
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center gap-2.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white font-semibold px-7 py-3.5 rounded-xl shadow-lg shadow-orange-600/30 dark:shadow-orange-900/20 transition-all duration-200"
-          >
-            <span>Please Login</span>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  const userId = session.user.id || session.user._id;
-  const userEmail = session.user.email;
-
-  console.log('User ID:', userId);
-  console.log('User Email:', userEmail);
-
-  // 3. Data Fetching
-  let formattedRecipes = [];
-  let isError = false;
-
-  try {
-    const client = await clientPromise;
-    const db = client.db('recipehouse');
-
-    // Query conditions তৈরি
-    const queryConditions = [];
-
-    if (userId) {
-      const userIdStr = String(userId);
-      queryConditions.push({ userId: userIdStr });
-      
-      // ObjectId চেক
-      if (ObjectId.isValid(userId)) {
-        queryConditions.push({ userId: new ObjectId(userId) });
-      }
-      
-      // যারা userId কে string হিসেবে সংরক্ষণ করেছে
-      queryConditions.push({ userId: { $eq: userIdStr } });
-    }
-
-    if (userEmail) {
-      const emailStr = String(userEmail);
-      queryConditions.push({ userEmail: emailStr });
-      queryConditions.push({ email: emailStr });
-      queryConditions.push({ authorEmail: emailStr });
-      queryConditions.push({ "author.email": emailStr });
-    }
-
-    // বোনাস: যারা userId নেই তাদের জন্য
-    queryConditions.push({ user: userId });
-    queryConditions.push({ authorId: userId });
-
-    const query = queryConditions.length > 0 ? { $or: queryConditions } : { _id: null };
-
-    console.log('Query:', JSON.stringify(query, null, 2));
-
-    // রেসিপি খোঁজা
-    const recipes = await db.collection('recipes')
-      .find(query)
-      .sort({ createdAt: -1 })
-      .limit(100)
-      .toArray();
-
-    console.log('Recipes found:', recipes.length);
-
-    formattedRecipes = recipes.map(recipe => ({
-      ...recipe,
-      _id: recipe._id.toString()
-    }));
-
-  } catch (error) {
-    console.error('Error fetching recipes:', error);
-    isError = true;
-  }
-
-  // Error হলে
-  if (isError) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center px-4">
-        <div className="text-center py-16">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Failed to Load Recipes</h2>
-          <p className="text-slate-600">Please try again later or contact support.</p>
-          <Link href="/dashboard" className="inline-block mt-4 bg-orange-600 text-white px-6 py-2.5 rounded-xl">
-            Go Back
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // 4. Main JSX
-  return (
-    <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
-      <Toaster position="top-right" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
-          <div>
-            <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
-              My Recipes ({formattedRecipes.length})
-            </h1>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Manage your culinary creations.
-            </p>
-            {/* ডিবাগ: Vercel এ দেখুন */}
-            <p className="mt-2 text-xs text-slate-400">
-              User ID: {userId || 'Not found'}
-            </p>
-          </div>
-          <Link
-            href="/dashboard/users/addrecipe"
-            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
-          >
-            <FaPlus /> Add New Recipe
-          </Link>
-        </div>
-
-        {formattedRecipes.length === 0 ? (
-          <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
-            <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
-            <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
-              You have not posted any recipes yet.
-            </p>
-            <p className="text-sm text-slate-400 mb-4">
-              (Debug: User ID: {userId || 'Not found'})
-            </p>
-            <Link
-              href="/dashboard/users/addrecipe"
-              className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
-            >
-              Create Your First Recipe
-            </Link>
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
-                    <th className="py-4 px-6">Recipe</th>
-                    <th className="py-4 px-6">Category</th>
-                    <th className="py-4 px-6">Price</th>
-                    <th className="py-4 px-6">Status</th>
-                    <th className="py-4 px-6 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
-                  {formattedRecipes.map((recipe) => (
-                    <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-4">
-                          <img
-                            src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
-                            alt={recipe.name || "Recipe"}
-                            className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
-                          />
-                          <div>
-                            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
-                              {recipe.name}
-                            </h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
-                              {recipe.instructions || recipe.description || "No description provided"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
-                        {recipe.category || 'General'}
-                      </td>
-                      <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
-                        ${recipe.price || 0}
-                      </td>
-                      <td className="py-4 px-6">
-                        {recipe.status && (
-                          <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
-                            recipe.status === 'approved'
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
-                          }`}>
-                            {recipe.status}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-4 px-6 text-right">
-                        <DeleteButton recipeId={recipe._id} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-
-
-
-
-
-
-
 // import { ObjectId } from 'mongodb';
 // import Link from 'next/link';
 // import { FaPlus, FaUtensils } from 'react-icons/fa';
-// import { headers, cookies } from 'next/headers';
+// import { headers } from 'next/headers';
 // import { Toaster } from 'react-hot-toast';
 // import DeleteButton from '@/components/DeleteButton';
 // import clientPromise from '@/lib/mongodb';
@@ -281,27 +15,37 @@ export default async function MyRecipesPage() {
 // export const revalidate = 0;
 
 // export default async function MyRecipesPage() {
-//   const reqHeaders = await headers();
-//   const cookieStore = await cookies();
-
-//   const allCookies = cookieStore.getAll();
-//   const cookieString = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
-
-//   const customHeaders = new Headers(reqHeaders);
-//   if (cookieString) {
-//     customHeaders.set('cookie', cookieString);
-//   }
-
+//   // 1. Session পাওয়ার চেষ্টা (Vercel এর জন্য)
 //   let session = null;
+//   let sessionError = null;
+  
 //   try {
-//     session = await auth.api.getSession({
-//       headers: customHeaders,
-//     });
+//     console.log('=== FETCHING SESSION ===');
+    
+//     // Vercel এর জন্য headers
+//     const headersList = await headers();
+    
+//     // Session পাওয়া
+//     session = await auth();
+    
+//     console.log('Session found:', !!session);
+    
+//     if (session?.user) {
+//       console.log('User ID:', session.user.id);
+//       console.log('User Email:', session.user.email);
+//     } else {
+//       console.log('No user in session');
+//     }
+    
 //   } catch (error) {
-//     console.error("Vercel Live Session Extraction Failed:", error);
+//     console.error('Session error:', error);
+//     sessionError = error.message;
 //   }
 
-//   if (!session || !session?.user) {
+//   // 2. Session না থাকলে - Vercel এ এই অংশ দেখাবে
+//   if (!session || !session.user) {
+//     console.log('❌ No session, showing login prompt');
+    
 //     return (
 //       <div className="min-h-[70vh] bg-slate-100/70 dark:bg-slate-950 py-12 flex items-center justify-center px-4">
 //         <div className="max-w-2xl w-full mx-auto text-center py-16 px-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
@@ -323,62 +67,124 @@ export default async function MyRecipesPage() {
 //           >
 //             <span>Please Login</span>
 //           </Link>
+
+//           {/* ডিবাগ তথ্য - Vercel এ দেখতে */}
+//           {process.env.NODE_ENV === 'development' && (
+//             <div className="mt-8 p-4 bg-red-50 rounded-xl text-left text-sm">
+//               <p className="font-mono text-red-600">Debug: No session found</p>
+//               <p className="font-mono text-red-400 text-xs mt-1">
+//                 Error: {sessionError || 'No error message'}
+//               </p>
+//             </div>
+//           )}
 //         </div>
 //       </div>
 //     );
 //   }
 
+//   // 3. ইউজার তথ্য
 //   const userId = session.user.id || session.user._id;
 //   const userEmail = session.user.email;
 
-//   // 1. Data Fetching Data step-কে try...catch-এ রাখা হয়েছে
+//   console.log('✅ Session valid, User ID:', userId);
+
+//   // 4. ডাটা ফেচ
 //   let formattedRecipes = [];
 //   let isError = false;
+//   let errorMessage = '';
 
 //   try {
+//     console.log('📊 Fetching recipes for user:', userId);
+    
 //     const client = await clientPromise;
 //     const db = client.db('recipehouse');
 
+//     // Query তৈরি - বিভিন্ন ফরম্যাটে userId চেক
 //     const queryConditions = [];
 
 //     if (userId) {
-//       queryConditions.push({ userId: String(userId) });
+//       const userIdStr = String(userId);
+      
+//       // বিভিন্ন ফরম্যাটে userId চেক
+//       queryConditions.push({ userId: userIdStr });
+//       queryConditions.push({ userId: userId });
+      
+//       // ObjectId চেক
 //       if (ObjectId.isValid(userId)) {
 //         queryConditions.push({ userId: new ObjectId(userId) });
 //       }
+      
+//       // অন্যান্য সম্ভাব্য ফিল্ড নাম
+//       queryConditions.push({ user: userIdStr });
+//       queryConditions.push({ authorId: userIdStr });
+//       queryConditions.push({ creatorId: userIdStr });
+//       queryConditions.push({ createdBy: userIdStr });
 //     }
 
 //     if (userEmail) {
-//       queryConditions.push({ userEmail: String(userEmail) });
-//       queryConditions.push({ email: String(userEmail) });
-//       queryConditions.push({ authorEmail: String(userEmail) });
-//       queryConditions.push({ "author.email": String(userEmail) });
+//       const emailStr = String(userEmail);
+//       queryConditions.push({ userEmail: emailStr });
+//       queryConditions.push({ email: emailStr });
+//       queryConditions.push({ authorEmail: emailStr });
+//       queryConditions.push({ "author.email": emailStr });
 //     }
 
 //     const query = queryConditions.length > 0 ? { $or: queryConditions } : { _id: null };
 
+//     console.log('🔍 Query:', JSON.stringify(query, null, 2));
+
 //     const recipes = await db.collection('recipes')
 //       .find(query)
 //       .sort({ createdAt: -1 })
+//       .limit(100)
 //       .toArray();
+
+//     console.log(`📊 Found ${recipes.length} recipes`);
 
 //     formattedRecipes = recipes.map(recipe => ({
 //       ...recipe,
 //       _id: recipe._id.toString()
 //     }));
 
-//     console.log(formattedRecipes, "the myrecipe");
+//     // যদি কোনো রেসিপি না পাওয়া যায়, তাহলে সব রেসিপি দেখান (ডিবাগের জন্য)
+//     if (formattedRecipes.length === 0) {
+//       console.log('⚠️ No recipes found for this user, checking all recipes...');
+      
+//       const allRecipes = await db.collection('recipes')
+//         .find({})
+//         .limit(10)
+//         .toArray();
+      
+//       console.log('📊 Sample of all recipes:', allRecipes.map(r => ({
+//         name: r.name,
+//         userId: r.userId,
+//         userIdType: typeof r.userId,
+//         hasUserId: !!r.userId
+//       })));
+//     }
+
 //   } catch (error) {
-//     console.error("Error fetching recipes:", error);
+//     console.error('❌ Error fetching recipes:', error);
 //     isError = true;
+//     errorMessage = error.message;
 //   }
 
-//   // Database fetch-এ এরর থাকলে
+//   // 5. Error হলে
 //   if (isError) {
-//     return <div className="text-center py-20 text-red-500">Failed to load recipes.</div>;
+//     return (
+//       <div className="min-h-[70vh] flex items-center justify-center px-4">
+//         <div className="text-center py-16">
+//           <h2 className="text-2xl font-bold text-red-600 mb-4">Failed to Load Recipes</h2>
+//           <p className="text-slate-600">{errorMessage || 'Please try again later'}</p>
+//           <Link href="/dashboard" className="inline-block mt-4 bg-orange-600 text-white px-6 py-2.5 rounded-xl">
+//             Go Back
+//           </Link>
+//         </div>
+//       </div>
+//     );
 //   }
 
-//   // 2. Main JSX Return (try...catch-এর বাইরে)
+//   // 6. Main UI
 //   return (
 //     <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
 //       <Toaster position="top-right" />
@@ -390,6 +196,10 @@ export default async function MyRecipesPage() {
 //             </h1>
 //             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
 //               Manage your culinary creations.
+//             </p>
+//             {/* Vercel ডিবাগ */}
+//             <p className="mt-1 text-xs text-slate-400">
+//               User ID: {userId}
 //             </p>
 //           </div>
 //           <Link
@@ -477,6 +287,223 @@ export default async function MyRecipesPage() {
 //     </div>
 //   );
 // }
+
+
+
+
+
+
+// ok code 
+
+import { ObjectId } from 'mongodb';
+import Link from 'next/link';
+import { FaPlus, FaUtensils } from 'react-icons/fa';
+import { headers, cookies } from 'next/headers';
+import { Toaster } from 'react-hot-toast';
+import DeleteButton from '@/components/DeleteButton';
+import clientPromise from '@/lib/mongodb';
+import { auth } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export default async function MyRecipesPage() {
+  const reqHeaders = await headers();
+  const cookieStore = await cookies();
+
+  const allCookies = cookieStore.getAll();
+  const cookieString = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
+
+  const customHeaders = new Headers(reqHeaders);
+  if (cookieString) {
+    customHeaders.set('cookie', cookieString);
+  }
+
+  let session = null;
+  try {
+    session = await auth.api.getSession({
+      headers: customHeaders,
+    });
+  } catch (error) {
+    console.error("Vercel Live Session Extraction Failed:", error);
+  }
+
+  if (!session || !session?.user) {
+    return (
+      <div className="min-h-[70vh] bg-slate-100/70 dark:bg-slate-950 py-12 flex items-center justify-center px-4">
+        <div className="max-w-2xl w-full mx-auto text-center py-16 px-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-xl shadow-slate-200/50 dark:shadow-none transition-all">
+          <div className="w-20 h-20 bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-orange-50 dark:ring-orange-950/20">
+            <FaUtensils className="text-3xl" />
+          </div>
+
+          <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-3">
+            Access Denied
+          </h2>
+
+          <p className="text-slate-600 dark:text-slate-400 text-base max-w-md mx-auto mb-8 leading-relaxed">
+            Please log in to view and manage your culinary creations and share your recipes with the world!
+          </p>
+
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center gap-2.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white font-semibold px-7 py-3.5 rounded-xl shadow-lg shadow-orange-600/30 dark:shadow-orange-900/20 transition-all duration-200"
+          >
+            <span>Please Login</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const userId = session.user.id || session.user._id;
+  const userEmail = session.user.email;
+
+  // 1. Data Fetching Data step-কে try...catch-এ রাখা হয়েছে
+  let formattedRecipes = [];
+  let isError = false;
+
+  try {
+    const client = await clientPromise;
+    const db = client.db('recipehouse');
+
+    const queryConditions = [];
+
+    if (userId) {
+      queryConditions.push({ userId: String(userId) });
+      if (ObjectId.isValid(userId)) {
+        queryConditions.push({ userId: new ObjectId(userId) });
+      }
+    }
+
+    if (userEmail) {
+      queryConditions.push({ userEmail: String(userEmail) });
+      queryConditions.push({ email: String(userEmail) });
+      queryConditions.push({ authorEmail: String(userEmail) });
+      queryConditions.push({ "author.email": String(userEmail) });
+    }
+
+    const query = queryConditions.length > 0 ? { $or: queryConditions } : { _id: null };
+
+    const recipes = await db.collection('recipes')
+      .find(query)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    formattedRecipes = recipes.map(recipe => ({
+      ...recipe,
+      _id: recipe._id.toString()
+    }));
+
+    console.log(formattedRecipes, "the myrecipe");
+  } catch (error) {
+    console.error("Error fetching recipes:", error);
+    isError = true;
+  }
+
+  // Database fetch-এ এরর থাকলে
+  if (isError) {
+    return <div className="text-center py-20 text-red-500">Failed to load recipes.</div>;
+  }
+
+  // 2. Main JSX Return (try...catch-এর বাইরে)
+  return (
+    <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 py-12 transition-colors duration-200">
+      <Toaster position="top-right" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10 pb-6 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <h1 className="text-3xl font-extrabold text-orange-600 dark:text-orange-500">
+              My Recipes ({formattedRecipes.length})
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Manage your culinary creations.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/users/addrecipe"
+            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-medium px-5 py-2.5 rounded-xl transition shadow-sm"
+          >
+            <FaPlus /> Add New Recipe
+          </Link>
+        </div>
+
+        {formattedRecipes.length === 0 ? (
+          <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm">
+            <div className="text-4xl text-slate-300 dark:text-slate-700 mb-3">🍽️</div>
+            <p className="text-slate-600 dark:text-slate-400 text-lg mb-2">
+              You have not posted any recipes yet.
+            </p>
+            <Link
+              href="/dashboard/users/addrecipe"
+              className="inline-block bg-orange-600 text-white px-6 py-2.5 rounded-xl hover:bg-orange-700 transition"
+            >
+              Create Your First Recipe
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
+                    <th className="py-4 px-6">Recipe</th>
+                    <th className="py-4 px-6">Category</th>
+                    <th className="py-4 px-6">Price</th>
+                    <th className="py-4 px-6">Status</th>
+                    <th className="py-4 px-6 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
+                  {formattedRecipes.map((recipe) => (
+                    <tr key={recipe._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-4">
+                          <img
+                            src={recipe.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c"}
+                            alt={recipe.name || "Recipe"}
+                            className="w-14 h-14 rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+                          />
+                          <div>
+                            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base">
+                              {recipe.name}
+                            </h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-xs">
+                              {recipe.instructions || recipe.description || "No description provided"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium">
+                        {recipe.category || 'General'}
+                      </td>
+                      <td className="py-4 px-6 font-semibold text-orange-600 dark:text-orange-400">
+                        ${recipe.price || 0}
+                      </td>
+                      <td className="py-4 px-6">
+                        {recipe.status && (
+                          <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${
+                            recipe.status === 'approved'
+                              ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+                              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300'
+                          }`}>
+                            {recipe.status}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <DeleteButton recipeId={recipe._id} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 
 

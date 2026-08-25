@@ -1,57 +1,82 @@
-
-
 'use server';
+
+import clientPromise from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 export async function getUserStats(userId, userEmail) {
   try {
+    // 🔍 Debug log: কি প্যারামিটার আসছ চেক করার জন্য
+    console.log("--> getUserStats Called with:", { userId, userEmail });
+
     if (!userId && !userEmail) {
       return { totalRecipes: 0, totalFavorites: 0, totalLikes: 0 };
     }
 
-    const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+    const client = await clientPromise;
+    const db = client.db('recipehouse');
 
-    // ১. FavoritesPage এর হুবহু API Route ও Params পাস করা হলো
-    const favRes = await fetch(
-      `${SERVER_URL}/api/recipes/favorites?userId=${encodeURIComponent(userId || '')}&userEmail=${encodeURIComponent(userEmail || '')}`,
-      { cache: 'no-store' }
-    );
-    
-    let totalFavorites = 0;
-    if (favRes.ok) {
-      const favData = await favRes.json();
-      
-      // FavoritesPage এর মতোই ডাটা এক্সট্র্যাক্ট করা
-      const favList = 
-        favData?.favorites || 
-        favData?.data || 
-        (Array.isArray(favData) ? favData : []);
-      
-      totalFavorites = favList.length;
+    // -------------------------------------------------------------
+    // ১. RECIPES FILTER (User Filter)
+    // -------------------------------------------------------------
+    const recipeConditions = [];
+
+    if (userId) {
+      recipeConditions.push({ userId: String(userId) });
+      if (ObjectId.isValid(userId)) {
+        recipeConditions.push({ userId: new ObjectId(userId) });
+      }
     }
 
-    // ২. Recipes API ফেচ করা
-    const recipesRes = await fetch(
-      `${SERVER_URL}/recipes?userId=${encodeURIComponent(userId || '')}&userEmail=${encodeURIComponent(userEmail || '')}`,
-      { cache: 'no-store' }
-    );
-
-    let totalRecipes = 0;
-    let totalLikes = 0;
-
-    if (recipesRes.ok) {
-      const recipesData = await recipesRes.json();
-      const userRecipes = 
-        recipesData?.recipes || 
-        recipesData?.data || 
-        (Array.isArray(recipesData) ? recipesData : []);
-
-      totalRecipes = userRecipes.length;
-
-      totalLikes = userRecipes.reduce((acc, recipe) => {
-        if (Array.isArray(recipe.likes)) return acc + recipe.likes.length;
-        return acc + (Number(recipe.likes) || 0);
-      }, 0);
+    if (userEmail) {
+      const emailStr = String(userEmail);
+      recipeConditions.push({ userEmail: emailStr });
+      recipeConditions.push({ email: emailStr });
+      recipeConditions.push({ authorEmail: emailStr });
+      recipeConditions.push({ "author.email": emailStr });
+      recipeConditions.push({ "user.email": emailStr });
     }
+
+    const recipeQuery = recipeConditions.length > 0 ? { $or: recipeConditions } : { _id: null };
+
+    // -------------------------------------------------------------
+    // ২. FAVORITES FILTER
+    // -------------------------------------------------------------
+    const favConditions = [];
+
+    if (userId) {
+      favConditions.push({ userId: String(userId) });
+      if (ObjectId.isValid(userId)) {
+        favConditions.push({ userId: new ObjectId(userId) });
+      }
+    }
+
+    if (userEmail) {
+      const emailStr = String(userEmail);
+      favConditions.push({ userEmail: emailStr });
+      favConditions.push({ email: emailStr });
+      favConditions.push({ "user.email": emailStr });
+    }
+
+    const favQuery = favConditions.length > 0 ? { $or: favConditions } : { _id: null };
+
+    // -------------------------------------------------------------
+    // ৩. DATABASE QUERIES
+    // -------------------------------------------------------------
+    const [totalRecipes, totalFavorites, userRecipes] = await Promise.all([
+      db.collection('recipes').countDocuments(recipeQuery),
+      db.collection('favorites').countDocuments(favQuery),
+      db.collection('recipes').find(recipeQuery).toArray()
+    ]);
+
+    // 🔍 Debug log: ডাটাবেজ কতগুলো ডক্যুমেন্ট পেয়েছে তা দেখার জন্য
+    console.log("--> MongoDB Matched Recipes Count:", totalRecipes);
+    console.log("--> MongoDB Matched Favorites Count:", totalFavorites);
+
+    // Likes Calculate
+    const totalLikes = userRecipes.reduce((acc, recipe) => {
+      if (Array.isArray(recipe.likes)) return acc + recipe.likes.length;
+      return acc + (Number(recipe.likes) || 0);
+    }, 0);
 
     return {
       totalRecipes,
@@ -63,6 +88,128 @@ export async function getUserStats(userId, userEmail) {
     return { totalRecipes: 0, totalFavorites: 0, totalLikes: 0 };
   }
 }
+
+
+
+
+
+
+
+// import { connectDB } from "@/lib/connectDB"; // অথবা আপনার DB কানেকশন
+// import { ObjectId } from "mongodb";
+
+// export async function getUserStats(userId, userEmail) {
+//   try {
+//     const db = await connectDB();
+    
+//     // ১. ইউজার কয়টি রেসিপি তৈরি করেছে (My Recipes Count)
+//     const totalRecipes = await db.collection("recipes").countDocuments({
+//       $or: [
+//         { userId: userId },
+//         { userEmail: userEmail },
+//         { email: userEmail },
+//         { authorEmail: userEmail }
+//       ]
+//     });
+
+//     // ২. ইউজার কয়টি ফেভারিট সেভ করেছে (Favorites Count - 💥 MAIN FIX)
+//     const totalFavorites = await db.collection("favorites").countDocuments({
+//       $or: [
+//         { userId: userId },
+//         { userEmail: userEmail },
+//         { email: userEmail },
+//         { userId: userId ? new ObjectId(userId) : null }
+//       ]
+//     });
+
+//     // ৩. ইউজারের রেসিপিতে মোট কয়টি লাইক এসেছে (Total Likes Received)
+//     // (যদি রেসিপির ভেতর likes অ্যারে থাকে)
+//     const recipes = await db.collection("recipes").find({
+//       $or: [{ userEmail: userEmail }, { userId: userId }]
+//     }).toArray();
+
+//     const totalLikes = recipes.reduce((acc, curr) => {
+//       const likesCount = Array.isArray(curr.likes) ? curr.likes.length : (curr.likes || 0);
+//       return acc + likesCount;
+//     }, 0);
+
+//     return {
+//       totalRecipes: totalRecipes || 0,
+//       totalFavorites: totalFavorites || 0,
+//       totalLikes: totalLikes || 0,
+//     };
+//   } catch (error) {
+//     console.error("Error in getUserStats:", error);
+//     return { totalRecipes: 0, totalFavorites: 0, totalLikes: 0 };
+//   }
+// }
+
+
+// ok c ode 
+
+// 'use server';
+
+// export async function getUserStats(userId, userEmail) {
+//   try {
+//     if (!userId && !userEmail) {
+//       return { totalRecipes: 0, totalFavorites: 0, totalLikes: 0 };
+//     }
+
+//     const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:5000';
+
+//     // ১. FavoritesPage এর হুবহু API Route ও Params পাস করা হলো
+//     const favRes = await fetch(
+//       `${SERVER_URL}/api/recipes/favorites?userId=${encodeURIComponent(userId || '')}&userEmail=${encodeURIComponent(userEmail || '')}`,
+//       { cache: 'no-store' }
+//     );
+    
+//     let totalFavorites = 0;
+//     if (favRes.ok) {
+//       const favData = await favRes.json();
+      
+//       // FavoritesPage এর মতোই ডাটা এক্সট্র্যাক্ট করা
+//       const favList = 
+//         favData?.favorites || 
+//         favData?.data || 
+//         (Array.isArray(favData) ? favData : []);
+      
+//       totalFavorites = favList.length;
+//     }
+
+//     // ২. Recipes API ফেচ করা
+//     const recipesRes = await fetch(
+//       `${SERVER_URL}/recipes?userId=${encodeURIComponent(userId || '')}&userEmail=${encodeURIComponent(userEmail || '')}`,
+//       { cache: 'no-store' }
+//     );
+
+//     let totalRecipes = 0;
+//     let totalLikes = 0;
+
+//     if (recipesRes.ok) {
+//       const recipesData = await recipesRes.json();
+//       const userRecipes = 
+//         recipesData?.recipes || 
+//         recipesData?.data || 
+//         (Array.isArray(recipesData) ? recipesData : []);
+
+//       totalRecipes = userRecipes.length;
+
+//       totalLikes = userRecipes.reduce((acc, recipe) => {
+//         if (Array.isArray(recipe.likes)) return acc + recipe.likes.length;
+//         return acc + (Number(recipe.likes) || 0);
+//       }, 0);
+//     }
+
+//     return {
+//       totalRecipes,
+//       totalFavorites,
+//       totalLikes,
+//     };
+//   } catch (error) {
+//     console.error("getUserStats Error:", error);
+//     return { totalRecipes: 0, totalFavorites: 0, totalLikes: 0 };
+//   }
+// }
 
 
 
