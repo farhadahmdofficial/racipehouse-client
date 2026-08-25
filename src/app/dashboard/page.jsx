@@ -18,6 +18,7 @@ import { getAllUsers } from '@/lib/actions/userActions';
 import { getAllRecipes } from '@/lib/actions/recipeActions';
 import { getAllReports } from '@/lib/actions/reportActions';
 
+
 export const dynamic = 'force-dynamic';
 
 export default async function OverviewPage() {
@@ -62,6 +63,7 @@ export default async function OverviewPage() {
   const userStats = [
     { title: 'Total Recipes', count: statsData.totalRecipes, icon: FaUtensils, color: 'text-blue-500 bg-blue-100 dark:bg-blue-950/60' },
     { title: 'Total Favorites', count: statsData.totalFavorites, icon: FaBookmark, color: 'text-orange-500 bg-orange-100 dark:bg-orange-950/60' },
+    { title: 'Total ', count: statsData.totalFavorites, icon: FaBookmark, color: 'text-orange-500 bg-orange-100 dark:bg-orange-950/60' },
     { title: 'Likes Received', count: statsData.totalLikes, icon: FaHeart, color: 'text-amber-500 bg-amber-100 dark:bg-amber-950/60' },
   ];
 
@@ -69,6 +71,7 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-8">
+     
       <div>
         <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white capitalize">
           {user?.role || 'User'} Dashboard

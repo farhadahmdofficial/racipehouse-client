@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { authClient } from "@/lib/auth-client";
 
+
 // Default Fallback Image URL
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c";
 
@@ -109,6 +110,9 @@ const FavoritesPage = () => {
     };
   };
 
+ 
+  
+
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6">
       <motion.div
@@ -123,8 +127,12 @@ const FavoritesPage = () => {
           </h2>
           <span className="text-xs font-semibold px-3 py-1 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400">
             Total: {favorites.length}
+            
           </span>
         </div>
+     
+
+       
 
         {/* Loading / Empty / Data Views */}
         {loading || isPending ? (
